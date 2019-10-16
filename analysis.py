@@ -7,7 +7,7 @@ import pandas as pd
 CHUNKSIZE_TOM = 1000000  # processing 1 000 000 rows at a time
 CHUNKSIZE_THIB = 1000000  # processing 1 000 000 rows at a time
 
-def process_frame(df):
+def get_packet_size(df):
     columns_to_drop = [ 'dir',
         'nh',
         'nhb',
@@ -45,18 +45,36 @@ def get_flow_dur(df):
     return df['time_duration']
 
 
-def question1(df_reader):
-    pool = mp.Pool(4) # use 4 processes
+def get_packets_flow(df):
+    return df['in_packets']
 
-    # QUESTION 1
+
+def get_bytes_flow(df):
+    return df['in_bytes']
+
+
+def get_volume_src_port(df):
+    return df.groupby(['src_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10]
+
+
+def get_volume_dest_port(df):
+    return df.groupby(['dest_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10]
+
+
+def exec_multi_proc_f(df_reader, pool, function_par):
     joblist = []
     for df in df_reader:
-        joblist.append(pool.apply_async(process_frame,[df]))
+        joblist.append(pool.apply_async(function_par,[df]))
         break
 
     df_list = []
     for f in joblist:
         df_list.append(f.get(timeout=10))
+    return df_list
+
+
+def create_graph(df_reader, pool, function_par, cum, is_log):
+    df_list = exec_multi_proc_f(df_reader, pool, function_par)
 
     complete_df = pd.concat(df_list)
     print(complete_df[:10])
@@ -66,47 +84,50 @@ def question1(df_reader):
 
     n_bins = 100
     n, bins, patches = ax.hist(complete_df, bins=n_bins, density=False)
-    n, bins, patches = ax2.hist(complete_df, density=True, cumulative=True, histtype='step',
-                                label='CDF', bins=n_bins, color='tab:orange')
+    n, bins, patches = ax2.hist(complete_df, density=True, cumulative=cum, histtype='step',
+                                label='CDF', bins=n_bins, log=is_log, color='tab:orange')
 
     plt.show()
 
-def question2(df_reader):
 
-    pool = mp.Pool(4) # use 4 processes
+def question1(df_reader, pool):
+    # QUESTION 1: CDF of packet size
+    create_graph(df_reader, pool, get_packet_size, 1, False)
 
-    # QUESTION 2
-    joblist = []
-    for df in df_reader:
-        joblist.append(pool.apply_async(get_flow_dur,[df]))
-        break
 
-    df_list = []
-    for f in joblist:
-        df_list.append(f.get(timeout=10))
+def question2(df_reader, pool):
+    # QUESTION 2: CCDF of flow duration, linear axis
+    create_graph(df_reader, pool, get_flow_dur, -1, False)
 
-    complete_df = pd.concat(df_list)
-    print(complete_df[:10])
-    sorted_df = complete_df.sort_values()
+    # QUESTION 2: CCDF of number of bytes in a flow, linear axis
+    create_graph(df_reader, pool, get_bytes_flow, -1, False)
 
-    fig, ax = plt.subplots()
-    ax2 = ax.twinx()
+    # QUESTION 2: CCDF of number of packets in a flow, linear axis
+    create_graph(df_reader, pool, get_packets_flow, -1, False)
 
-    n_bins = 100
-    n, bins, patches = ax.hist(sorted_df, bins=n_bins, density=False)
-    n, bins, patches = ax2.hist(sorted_df, density=True, cumulative=-1, histtype='step',
-                                label='CCDF', bins=n_bins, color='tab:orange')
+    # QUESTION 2: CCDF of flow duration, log axis
+    create_graph(df_reader, pool, get_flow_dur, -1, True)
 
-    plt.show()
+    # QUESTION 2: CCDF of number of bytes in a flow, log axis
+    create_graph(df_reader, pool, get_bytes_flow, -1, True)
 
+    # QUESTION 2: CCDF of number of packets in a flow, log axis
+    create_graph(df_reader, pool, get_packets_flow, -1, True)
 
 def question4(df):
     # # QUESTION 4
     gb = df.groupby(['src_addr'])[['in_bytes']].agg('sum').reset_index()
-    print(gb.sort_values(by=['in_bytes']))
+    print(gb.sort_values(by=['in_bytes'], ascending=False))
+
+def question3(df_reader, pool):
+    df_list = exec_multi_proc_f(df_reader, pool, get_volume_src_port)
+    print(df_list)
+
+    df_list = exec_multi_proc_f(df_reader, pool, get_volume_dest_port)
+    print(df_list)
+
 
     
-
 if __name__ == '__main__':
     filename = "/mnt/hdd/netflow_split89"
     # filename = "data.csv"
@@ -162,9 +183,11 @@ if __name__ == '__main__':
 
     df_reader = pd.read_csv(filename, chunksize=CHUNKSIZE_TOM, header=0, delimiter=',', names=new_names)
     df = pd.read_csv(filename, header=None, delimiter=',', names=new_names)
-    # question1(df_reader)
-    # question2(df_reader)
-    
+
+    pool = mp.Pool(4) # use 4 processes
+    # question1(df_reader, pool)
+    # question2(df_reader, pool)
+    # question3(df_reader, pool)
     question4(df)
 
 
