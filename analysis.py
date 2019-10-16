@@ -53,10 +53,10 @@ def get_bytes_flow(df):
     return df['in_bytes']
 
 
-def question1(df_reader, pool):
+def create_graph(df_reader, pool, function_par, cum):
     joblist = []
     for df in df_reader:
-        joblist.append(pool.apply_async(get_packet_size,[df]))
+        joblist.append(pool.apply_async(function_par,[df]))
         break
 
     df_list = []
@@ -71,84 +71,25 @@ def question1(df_reader, pool):
 
     n_bins = 100
     n, bins, patches = ax.hist(complete_df, bins=n_bins, density=False)
-    n, bins, patches = ax2.hist(complete_df, density=True, cumulative=True, histtype='step',
+    n, bins, patches = ax2.hist(complete_df, density=True, cumulative=cum, histtype='step',
                                 label='CDF', bins=n_bins, color='tab:orange')
 
     plt.show()
 
 
+def question1(df_reader, pool):
+    create_graph(df_reader, pool, get_packet_size, 1)
+
+
 def question2(df_reader, pool):
     # QUESTION 2: CCDF of flow duration
-    joblist = []
-    for df in df_reader:
-        joblist.append(pool.apply_async(get_flow_dur,[df]))
-        break
-
-    df_list = []
-    for f in joblist:
-        df_list.append(f.get(timeout=10))
-
-    complete_df = pd.concat(df_list)
-    print(complete_df[:10])
-    sorted_df = complete_df.sort_values()
-
-    fig, ax = plt.subplots()
-    ax2 = ax.twinx()
-
-    n_bins = 100
-    n, bins, patches = ax.hist(sorted_df, bins=n_bins, density=False)
-    n, bins, patches = ax2.hist(sorted_df, density=True, cumulative=-1, histtype='step',
-                                label='CCDF flow duration', bins=n_bins, color='tab:orange')
-
-    plt.show()
+    create_graph(df_reader, pool, get_flow_dur, -1)
 
     # QUESTION 2: CCDF of number of bytes in a flow
-    joblist = []
-    for df in df_reader:
-        joblist.append(pool.apply_async(get_bytes_flow,[df]))
-        break
-
-    df_list = []
-    for f in joblist:
-        df_list.append(f.get(timeout=10))
-
-    complete_df = pd.concat(df_list)
-    print(complete_df[:10])
-    sorted_df = complete_df.sort_values()
-
-    fig, ax = plt.subplots()
-    ax2 = ax.twinx()
-
-    n_bins = 100
-    n, bins, patches = ax.hist(sorted_df, bins=n_bins, density=False)
-    n, bins, patches = ax2.hist(sorted_df, density=True, cumulative=-1, histtype='step',
-                                label='CCDF nb bytes in flow', bins=n_bins, color='tab:orange')
-
-    plt.show()
+    create_graph(df_reader, pool, get_bytes_flow, -1)
 
     # QUESTION 2: CCDF of number of packets in a flow
-    joblist = []
-    for df in df_reader:
-        joblist.append(pool.apply_async(get_packets_flow,[df]))
-        break
-
-    df_list = []
-    for f in joblist:
-        df_list.append(f.get(timeout=10))
-
-    complete_df = pd.concat(df_list)
-    print(complete_df[:10])
-    sorted_df = complete_df.sort_values()
-
-    fig, ax = plt.subplots()
-    ax2 = ax.twinx()
-
-    n_bins = 100
-    n, bins, patches = ax.hist(sorted_df, bins=n_bins, density=False)
-    n, bins, patches = ax2.hist(sorted_df, density=True, cumulative=-1, histtype='step',
-                                label='CCDF nb packets in flow', bins=n_bins, color='tab:orange')
-
-    plt.show()
+    create_graph(df_reader, pool, get_packets_flow, -1)
 
 
 def question4(df_reader, pool):
