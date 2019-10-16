@@ -113,7 +113,11 @@ if __name__ == '__main__':
 
     complete_df = pd.concat(df_list)
     print(complete_df[:10])
-    complete_df.sort_index().cumsum().plot(kind="bar")
+    sorted_df = complete_df.sort_values()
+
+    fig, ax = plt.subplots()
+    ax.hist(sorted_df, cumulative=1, histtype='step', bins=100, color='tab:orange')
+    fig.show()
     # result = 0
     # for f in funclist:
     #         result += f.get(timeout=10) # timeout in 10 seconds
