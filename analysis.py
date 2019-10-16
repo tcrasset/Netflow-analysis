@@ -2,16 +2,12 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
 import multiprocessing as mp
-
-
 import pandas as pd
 
 CHUNKSIZE_TOM = 5000000  # processing 1 000 000 rows at a time
 CHUNKSIZE_THIB = 1000000  # processing 1 000 000 rows at a time
 
-
 def process_frame(df):
-
     columns_to_drop = [ 'dir',
         'nh',
         'nhb',
@@ -38,20 +34,15 @@ def process_frame(df):
         'engine_type',
         'exid']
     df.drop(columns=columns_to_drop,inplace=True)
-
     print(df.src_mask.describe())
 
     df['packet_size'] = df['in_bytes']/df['in_packets']
 
-    # print(df.packet_size[0:2].transpose())
-    # print(df.columns)
-    # print(df.describe().transpose())
-
-    # process data frame
     return df['packet_size']
 
 if __name__ == '__main__':
     filename = "/mnt/hdd/netflow.csv"
+    # filename = "data.csv"
 
     new_names = [
         'time_start',
