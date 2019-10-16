@@ -43,13 +43,15 @@ def question3(filename, new_names):
     print(df.groupby(['dest_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10])
 
 
-def question4(filename, new_names):
-    return
+def question4(df):
+    # # QUESTION 4
+    gb = df.groupby(['src_addr'])[['in_bytes']].agg('sum').reset_index()
+    print(gb.sort_values(by=['in_bytes'], ascending=False))
 
     
 if __name__ == '__main__':
-    # filename = "/mnt/hdd/netflow.csv"
-    filename = "data.csv"
+    filename = "/mnt/hdd/netflow_split89"
+    # filename = "data.csv"
 
     new_names = [
         'time_start',
