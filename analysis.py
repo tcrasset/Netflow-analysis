@@ -4,7 +4,7 @@ import numpy as np
 import multiprocessing as mp
 import pandas as pd
 
-CHUNKSIZE_TOM = 5000000  # processing 1 000 000 rows at a time
+CHUNKSIZE_TOM = 1000000  # processing 1 000 000 rows at a time
 CHUNKSIZE_THIB = 1000000  # processing 1 000 000 rows at a time
 
 def process_frame(df):
@@ -100,24 +100,15 @@ def question2(df_reader):
     plt.show()
 
 
-def question4(df_reader):
-
-    pool = mp.Pool(4) # use 4 processes
-
-    # QUESTION 4
-    joblist = []
-    for df in df_reader:
-        joblist.append(pool.apply_async(get_flow_dur,[df]))
-        break
-
-    df_list = []
-    for f in joblist:
-        df_list.append(f.get(timeout=10))
+def question4(df):
+    # # QUESTION 4
+    gb = df.groupby(['src_addr'])[['in_bytes']].agg('sum').reset_index()
+    print(gb.sort_values(by=['in_bytes']))
 
     
 
 if __name__ == '__main__':
-    filename = "/mnt/hdd/netflow.csv"
+    filename = "/mnt/hdd/netflow_split89"
     # filename = "data.csv"
 
     new_names = [
@@ -169,11 +160,11 @@ if __name__ == '__main__':
         'engine_type',
         'exid']
 
-    df_reader = pd.read_csv(filename, chunksize=CHUNKSIZE_TOM, header=0, names=new_names)
-
+    df_reader = pd.read_csv(filename, chunksize=CHUNKSIZE_TOM, header=0, delimiter=',', names=new_names)
+    df = pd.read_csv(filename, header=None, delimiter=',', names=new_names)
     # question1(df_reader)
-    question2(df_reader)
+    # question2(df_reader)
     
-    question4(df_reader)
+    question4(df)
 
 
