@@ -38,6 +38,11 @@ def process_frame(df):
 
     return df['packet_size']
 
+
+def get_flow_dur(df):
+    return df['time_duration']
+
+
 if __name__ == '__main__':
     # filename = "/mnt/hdd/netflow.csv"
     filename = "data.csv"
@@ -94,6 +99,8 @@ if __name__ == '__main__':
     reader = pd.read_csv(filename, chunksize=CHUNKSIZE, header=0, names=new_names)
 
     pool = mp.Pool(4) # use 4 processes
+
+    # QUESTION 1
     joblist = []
     for df in reader:
         joblist.append(pool.apply_async(process_frame,[df]))
@@ -110,12 +117,33 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     ax2 = ax.twinx()
 
-    # ax.hist(sorted_df, cumulative=1, histtype='step', bins=100, color='tab:orange')
-    # fig.show()
-
     n_bins = 100
     n, bins, patches = ax.hist(sorted_df, bins=n_bins, density=False)
     n, bins, patches = ax2.hist(sorted_df, density=True, cumulative=True, histtype='step',
                                 label='CDF', bins=n_bins, color='tab:orange')
+
+    plt.show()
+
+    # QUESTION 2
+    joblist = []
+    for df in reader:
+        joblist.append(pool.apply_async(get_flow_dur,[df]))
+        break
+
+    df_list = []
+    for f in joblist:
+        df_list.append(f.get(timeout=10))
+
+    complete_df = pd.concat(df_list)
+    print(complete_df[:10])
+    sorted_df = complete_df.sort_values()
+
+    fig, ax = plt.subplots()
+    ax2 = ax.twinx()
+
+    n_bins = 100
+    n, bins, patches = ax.hist(sorted_df, bins=n_bins, density=False)
+    n, bins, patches = ax2.hist(sorted_df, density=True, cumulative=-1, histtype='step',
+                                label='CCDF', bins=n_bins, color='tab:orange')
 
     plt.show()
