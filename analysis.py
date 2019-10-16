@@ -6,7 +6,8 @@ import multiprocessing as mp
 
 import pandas as pd
 
-CHUNKSIZE = 1000000  # processing 1 000 000 rows at a time
+CHUNKSIZE_TOM = 5000000  # processing 1 000 000 rows at a time
+CHUNKSIZE_THIB = 1000000  # processing 1 000 000 rows at a time
 
 
 def process_frame(df):
@@ -38,6 +39,8 @@ def process_frame(df):
         'exid']
     df.drop(columns=columns_to_drop,inplace=True)
 
+    print(df.src_mask.describe())
+
     df['packet_size'] = df['in_bytes']/df['in_packets']
 
     # print(df.packet_size[0:2].transpose())
@@ -49,7 +52,6 @@ def process_frame(df):
 
 if __name__ == '__main__':
     filename = "/mnt/hdd/netflow.csv"
-    reader = pd.read_csv(filename, chunksize=CHUNKSIZE)
 
     new_names = [
         'time_start',
@@ -99,7 +101,8 @@ if __name__ == '__main__':
         'ra',
         'engine_type',
         'exid']
-    reader = pd.read_csv(filename, chunksize=CHUNKSIZE, header=0, names=new_names)
+
+    reader = pd.read_csv(filename, chunksize=CHUNKSIZE_TOM, header=0, names=new_names)
 
     pool = mp.Pool(4) # use 4 processes
     joblist = []
