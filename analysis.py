@@ -113,17 +113,12 @@ if __name__ == '__main__':
 
     complete_df = pd.concat(df_list)
     print(complete_df[:10])
-    sorted_df = complete_df.sort_values()
 
     fig, ax = plt.subplots()
     ax2 = ax.twinx()
-
-    # ax.hist(sorted_df, cumulative=1, histtype='step', bins=100, color='tab:orange')
-    # fig.show()
-
     n_bins = 100
-    n, bins, patches = ax.hist(sorted_df, bins=n_bins, density=False)
-    n, bins, patches = ax2.hist(sorted_df, density=True, cumulative=True, histtype='step',
+    n, bins, patches = ax.hist(complete_df, bins=n_bins, density=False)
+    n, bins, patches = ax2.hist(complete_df, density=True, cumulative=True, histtype='step',
                                 label='CDF', bins=n_bins, color='tab:orange')
 
     plt.show()
