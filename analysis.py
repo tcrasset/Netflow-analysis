@@ -53,7 +53,15 @@ def get_bytes_flow(df):
     return df['in_bytes']
 
 
-def create_graph(df_reader, pool, function_par, cum):
+def get_volume_src_port(df):
+    return df.groupby(['src_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10]
+
+
+def get_volume_dest_port(df):
+    return df.groupby(['dest_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10]
+
+
+def exec_multi_proc_f(df_reader, pool, function_par):
     joblist = []
     for df in df_reader:
         joblist.append(pool.apply_async(function_par,[df]))
@@ -62,6 +70,11 @@ def create_graph(df_reader, pool, function_par, cum):
     df_list = []
     for f in joblist:
         df_list.append(f.get(timeout=10))
+    return df_list
+
+
+def create_graph(df_reader, pool, function_par, cum, is_log):
+    df_list = exec_multi_proc_f(df_reader, pool, function_par)
 
     complete_df = pd.concat(df_list)
     print(complete_df[:10])
@@ -72,24 +85,42 @@ def create_graph(df_reader, pool, function_par, cum):
     n_bins = 100
     n, bins, patches = ax.hist(complete_df, bins=n_bins, density=False)
     n, bins, patches = ax2.hist(complete_df, density=True, cumulative=cum, histtype='step',
-                                label='CDF', bins=n_bins, color='tab:orange')
+                                label='CDF', bins=n_bins, log=is_log, color='tab:orange')
 
     plt.show()
 
 
 def question1(df_reader, pool):
-    create_graph(df_reader, pool, get_packet_size, 1)
+    # QUESTION 1: CDF of packet size
+    create_graph(df_reader, pool, get_packet_size, 1, False)
 
 
 def question2(df_reader, pool):
-    # QUESTION 2: CCDF of flow duration
-    create_graph(df_reader, pool, get_flow_dur, -1)
+    # QUESTION 2: CCDF of flow duration, linear axis
+    create_graph(df_reader, pool, get_flow_dur, -1, False)
 
-    # QUESTION 2: CCDF of number of bytes in a flow
-    create_graph(df_reader, pool, get_bytes_flow, -1)
+    # QUESTION 2: CCDF of number of bytes in a flow, linear axis
+    create_graph(df_reader, pool, get_bytes_flow, -1, False)
 
-    # QUESTION 2: CCDF of number of packets in a flow
-    create_graph(df_reader, pool, get_packets_flow, -1)
+    # QUESTION 2: CCDF of number of packets in a flow, linear axis
+    create_graph(df_reader, pool, get_packets_flow, -1, False)
+
+    # QUESTION 2: CCDF of flow duration, log axis
+    create_graph(df_reader, pool, get_flow_dur, -1, True)
+
+    # QUESTION 2: CCDF of number of bytes in a flow, log axis
+    create_graph(df_reader, pool, get_bytes_flow, -1, True)
+
+    # QUESTION 2: CCDF of number of packets in a flow, log axis
+    create_graph(df_reader, pool, get_packets_flow, -1, True)
+
+
+def question3(df_reader, pool):
+    df_list = exec_multi_proc_f(df_reader, pool, get_volume_src_port)
+    print(df_list)
+
+    df_list = exec_multi_proc_f(df_reader, pool, get_volume_dest_port)
+    print(df_list)
 
 
 def question4(df_reader, pool):
@@ -160,8 +191,8 @@ if __name__ == '__main__':
     pool = mp.Pool(4) # use 4 processes
 
     # question1(df_reader, pool)
-    question2(df_reader, pool)
-    
+    # question2(df_reader, pool)
+    question3(df_reader, pool)
     #question4(df_reader, pool)
 
 
