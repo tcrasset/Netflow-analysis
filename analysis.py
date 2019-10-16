@@ -116,10 +116,14 @@ if __name__ == '__main__':
     sorted_df = complete_df.sort_values()
 
     fig, ax = plt.subplots()
-    ax.hist(sorted_df, cumulative=1, histtype='step', bins=100, color='tab:orange')
-    fig.show()
-    # result = 0
-    # for f in funclist:
-    #         result += f.get(timeout=10) # timeout in 10 seconds
+    ax2 = ax.twinx()
 
-    # print("There are {} rows of data".format(result))
+    # ax.hist(sorted_df, cumulative=1, histtype='step', bins=100, color='tab:orange')
+    # fig.show()
+
+    n_bins = 100
+    n, bins, patches = ax.hist(sorted_df, bins=n_bins, density=False)
+    n, bins, patches = ax2.hist(sorted_df, density=True, cumulative=True, histtype='step',
+                                label='CDF', bins=n_bins, color='tab:orange')
+
+    plt.show()
