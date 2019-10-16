@@ -7,7 +7,7 @@ import pandas as pd
 CHUNKSIZE_TOM = 5000000  # processing 1 000 000 rows at a time
 CHUNKSIZE_THIB = 1000000  # processing 1 000 000 rows at a time
 
-def process_frame(df):
+def get_packet_size(df):
     columns_to_drop = [ 'dir',
         'nh',
         'nhb',
@@ -45,13 +45,10 @@ def get_flow_dur(df):
     return df['time_duration']
 
 
-def question1(df_reader):
-    pool = mp.Pool(4) # use 4 processes
-
-    # QUESTION 1
+def question1(df_reader, pool):
     joblist = []
     for df in df_reader:
-        joblist.append(pool.apply_async(process_frame,[df]))
+        joblist.append(pool.apply_async(get_packet_size,[df]))
         break
 
     df_list = []
@@ -71,11 +68,8 @@ def question1(df_reader):
 
     plt.show()
 
-def question2(df_reader):
 
-    pool = mp.Pool(4) # use 4 processes
-
-    # QUESTION 2
+def question2(df_reader, pool):
     joblist = []
     for df in df_reader:
         joblist.append(pool.apply_async(get_flow_dur,[df]))
@@ -100,11 +94,7 @@ def question2(df_reader):
     plt.show()
 
 
-def question4(df_reader):
-
-    pool = mp.Pool(4) # use 4 processes
-
-    # QUESTION 4
+def question4(df_reader, pool):
     joblist = []
     for df in df_reader:
         joblist.append(pool.apply_async(get_flow_dur,[df]))
@@ -115,10 +105,9 @@ def question4(df_reader):
         df_list.append(f.get(timeout=10))
 
     
-
 if __name__ == '__main__':
-    filename = "/mnt/hdd/netflow.csv"
-    # filename = "data.csv"
+    # filename = "/mnt/hdd/netflow.csv"
+    filename = "data.csv"
 
     new_names = [
         'time_start',
@@ -169,11 +158,12 @@ if __name__ == '__main__':
         'engine_type',
         'exid']
 
-    df_reader = pd.read_csv(filename, chunksize=CHUNKSIZE_TOM, header=0, names=new_names)
+    df_reader = pd.read_csv(filename, chunksize=CHUNKSIZE_THIB, header=0, names=new_names)
+    pool = mp.Pool(4) # use 4 processes
 
-    # question1(df_reader)
-    question2(df_reader)
+    # question1(df_reader, pool)
+    question2(df_reader, pool)
     
-    question4(df_reader)
+    #question4(df_reader, pool)
 
 
