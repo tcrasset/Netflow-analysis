@@ -17,38 +17,41 @@ def create_graph(df, cum, is_log, name):
 
 def question1(filename, new_names):
     # QUESTION 1: CDF of packet size
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes', 'in_packets'])
-    create_graph(df['in_bytes']/df['in_packets'], 1, False, "CDF_pkts_size")
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes', 'in_packets'], nrows=92507632)
+    df['packet_size'] = df['in_bytes']/df['in_packets']
+    create_graph(df['packet_size'], 1, False, "CDF_pkts_size")
+    info = df.loc[:,"packet_size"].describe()
+    print(info)
+    print("CDF plots of packet size have been saved")
 
 
 def question2(filename, new_names):
     # QUESTION 2: CCDF of flow duration, linear axis
-    # df = pd.read_csv(filename, header=0, names=new_names, dtype={'time_duration': 'O'}, usecols=['time_duration'])
     df = pd.read_csv(filename, header=0, names=new_names, usecols=['time_duration'], nrows=92507632) # 92 507 632 ok, 92507633 not ok, real = 92507636
-    create_graph(df['time_duration'], -1, False, "CCDF_flow_dur_lin_92")
-    create_graph(df['time_duration'], -1, True, "CCDF_flow_dur_log_92")
+    create_graph(df['time_duration'], -1, False, "CCDF_flow_dur_lin")
+    create_graph(df['time_duration'], -1, True, "CCDF_flow_dur_log")
     print("CCDF plots (linear and log axis) of flow duration have been saved")
 
-    return
-
     # QUESTION 2: CCDF of number of bytes in a flow, linear axis
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes'])
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes'], nrows=92507632)
     create_graph(df['in_bytes'], -1, False, "CCDF_nb_bytes_in_flow_lin")
     create_graph(df['in_bytes'], -1, True, "CCDF_nb_bytes_in_flow_log")
     print("CCDF plots (linear and log axis) of number of bytes in a flow have been saved")
 
     # QUESTION 2: CCDF of number of packets in a flow, linear axis
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_packets'])
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_packets'], nrows=92507632)
     create_graph(df['in_packets'], -1, False, "CCDF_nb_pkts_in_flow_lin")
     create_graph(df['in_packets'], -1, True, "CCDF_nb_pkts_in_flow_log")
     print("CCDF plots (linear and log axis) of number of packets in a flow have been saved")
 
 
 def question3(filename, new_names):
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['src_port', 'in_bytes'])
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['src_port', 'in_bytes'], nrows=92507632)
+    print("Top-ten sender port numbers ordered by decreasing amount of traffic volume")
     print(df.groupby(['src_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10])
 
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['dest_port', 'in_bytes'])
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['dest_port', 'in_bytes'], nrows=92507632)
+    print("\nTop-ten receiver port numbers ordered by decreasing amount of traffic volume")
     print(df.groupby(['dest_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10])
 
 
@@ -62,9 +65,9 @@ if __name__ == '__main__':
     # filename = "/mnt/hdd/netflow_split89"
     filename = "data.csv"
 
-    cmd_get_size_file = "sed -n '$=' "+filename
-    data_size = int(subprocess.check_output(cmd_get_size_file, shell=True))
-    print(data_size)
+    # cmd_get_size_file = "sed -n '$=' "+filename
+    # data_size = int(subprocess.check_output(cmd_get_size_file, shell=True))
+    # print(data_size)
 
     new_names = [
         'time_start',
@@ -115,7 +118,7 @@ if __name__ == '__main__':
         'engine_type',
         'exid']
 
-    #question1(filename, new_names)
-    question2(filename, new_names)
+    question1(filename, new_names)
+    # question2(filename, new_names)
     # question3(filename, new_names)
     # question4(filename, new_names)
