@@ -54,35 +54,41 @@ def question4(filename, new_names, prefix_length, rows):
     df['src_addr_prefix'] = df['src_addr'].apply(lambda x : extractPrefix(x, prefix_length))
     df.drop(columns=['src_addr']) # To conserve memory
 
+    total_traffic = df['in_bytes'].sum()
     # Group by the prefix and sum the total volume of traffic
     gb = df.groupby(['src_addr_prefix'], sort=False)[['in_bytes']].agg('sum').reset_index()
     gb.sort_values(by=['in_bytes'], ascending=False, inplace=True)
-    print(gb.shape)
-    # Take only a certain percentage of prefixes
-    top10_prefixes = int(10/100 * gb.shape[0])
-    top1_prefixes = int(1/100 * gb.shape[0])
-    top01_prefixes = int(0.1/100 * gb.shape[0])
-
-    total_sum = gb.in_bytes.sum()
-
-    partial_sum = gb.in_bytes[:top10_prefixes].sum()
-    traffic_fraction = partial_sum / total_sum * 100
-    print("Fraction of traffic of 10% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-            .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
     
-    partial_sum = gb.in_bytes[:top1_prefixes].sum()
-    traffic_fraction = partial_sum / total_sum * 100
-    print("Fraction of traffic of 1% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-            .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
-    
-    partial_sum = gb.in_bytes[:top01_prefixes].sum()
-    traffic_fraction = partial_sum / total_sum * 100
-    print("Fraction of traffic of 0.1% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-            .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
+    gb['percentage'] = (gb['in_bytes']/total_traffic*100)
+    gb['percentage_cum'] = gb['percentage'].cumsum()
+    print(gb)
 
-    simpleBarPlot(gb, top10_prefixes,'10')
-    simpleBarPlot(gb, top1_prefixes,'1')
-    simpleBarPlot(gb, top01_prefixes,'01')
+
+    # # Take only a certain percentage of prefixes
+    # top10_prefixes = int(10/100 * gb.shape[0])
+    # top1_prefixes = int(1/100 * gb.shape[0])
+    # top01_prefixes = int(0.1/100 * gb.shape[0])
+
+    # total_sum = gb.in_bytes.sum()
+
+    # partial_sum = gb.in_bytes[:top10_prefixes].sum()
+    # traffic_fraction = partial_sum / total_sum * 100
+    # print("Fraction of traffic of 10% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+    #         .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
+    
+    # partial_sum = gb.in_bytes[:top1_prefixes].sum()
+    # traffic_fraction = partial_sum / total_sum * 100
+    # print("Fraction of traffic of 1% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+    #         .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
+    
+    # partial_sum = gb.in_bytes[:top01_prefixes].sum()
+    # traffic_fraction = partial_sum / total_sum * 100
+    # print("Fraction of traffic of 0.1% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+    #         .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
+
+    # simpleBarPlot(gb, top10_prefixes,'10')
+    # simpleBarPlot(gb, top1_prefixes,'1')
+    # simpleBarPlot(gb, top01_prefixes,'01')
 
 def simpleBarPlot(df, nb_prefix, percentage):
     df = df[:nb_prefix]
@@ -122,7 +128,7 @@ def question5(filename, new_names, rows):
     uliege_df_rcv = df[uliege_index_rcv]
 
     total_sent_from_uliege = uliege_df_sent['in_bytes'].sum()
-    total_rcv_from_uliege = uliege_df_rcv['in_bytes'].sum()
+    total_rcv_at_uliege = uliege_df_rcv['in_bytes'].sum()
 
     montefiore_sent_index = [searchIp(i, montefiore_network) for i in uliege_df_sent['src_addr'].values]
     montefiore_rcv_index = [searchIp(i, montefiore_network) for i in uliege_df_rcv['dest_addr'].values]
@@ -150,13 +156,13 @@ def question5(filename, new_names, rows):
             .format(run_sent_fraction, total_sent_from_run/10**9, total_sent_from_uliege/10**9))
 
     print("Fraction of traffic received at RUN: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-                .format(run_rcv_fraction, total_rcv_from_run/10**9, total_rcv_from_uliege/10**9))
+                .format(run_rcv_fraction, total_rcv_at_run/10**9, total_rcv_at_uliege/10**9))
 
     print("Fraction of traffic sent to Montefiore: {:.1f}% ({:.1f} GB /{:.1f} GB)"
                 .format(montef_sent_fraction, total_sent_from_montef/10**9, total_sent_from_uliege/10**9))
 
     print("Fraction of traffic received at Montefiore: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-            .format(montef_rcv_fraction, total_rcv_at_montef/10**9, total_rcv_from_uliege/10**9))
+            .format(montef_rcv_fraction, total_rcv_at_montef/10**9, total_rcv_at_uliege/10**9))
 
 
     
@@ -217,8 +223,8 @@ if __name__ == '__main__':
     #question1(filename, new_names)
     # question2(filename, new_names)
     # question3(filename, new_names)
-    # question4(filename, new_names, prefix_length=8, rows=10000000)
-    question5(filename, new_names, rows=100000)
+    question4(filename, new_names, prefix_length=24, rows=1000000)
+    # question5(filename, new_names, rows=100000)
 
 
     # prefix_length = sys.argv[1]
