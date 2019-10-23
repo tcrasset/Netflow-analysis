@@ -1,6 +1,7 @@
 import pandas as pd
 from matplotlib import pyplot as plt
 import ipaddress as ip
+import sys
 
 
 def create_graph(df, cum, is_log):
@@ -38,52 +39,68 @@ def question2(filename, new_names):
 
 def question3(filename, new_names):
     df = pd.read_csv(filename, header=0, names=new_names, usecols=['src_port', 'in_bytes'])
-    print(df.groupby(['src_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10])
+    print(df.groupby(['src_port'])[['in_bytes']].sum().reset_index()
+            .sort_values(by=['in_bytes'], ascending=False)[:10])
 
     df = pd.read_csv(filename, header=0, names=new_names, usecols=['dest_port', 'in_bytes'])
     print(df.groupby(['dest_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10])
 
 
-def question4(filename, new_names, percentage):
-    prefix_length = 12
-
-    df = pd.read_csv(filename, header=None, delimiter=',', names=new_names, usecols=['src_addr', 'in_bytes'], nrows=1000)
+def question4(filename, new_names, prefix_length, rows):
+    df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
+                        usecols=['src_addr', 'in_bytes'], nrows=rows)
 
     # Take a certain number of prefix bits
     df['src_addr_prefix'] = df['src_addr'].apply(lambda x : extractPrefix(x, prefix_length))
     df.drop(columns=['src_addr']) # To conserve memory
-    print(df['src_addr_prefix'][:10])
 
     # Group by the prefix and sum the total volume of traffic
-    gb = df.groupby(['src_addr_prefix'])[['in_bytes']].agg('sum').reset_index()
+    gb = df.groupby(['src_addr_prefix'], sort=False)[['in_bytes']].agg('sum').reset_index()
     gb.sort_values(by=['in_bytes'], ascending=False, inplace=True)
-
+    print(gb.shape)
     # Take only a certain percentage of prefixes
-    top_prefixes = int(percentage/100 * gb.shape[0])
-    print(top_prefixes)
-    gb = gb[:top_prefixes]
+    top10_prefixes = int(10/100 * gb.shape[0])
+    top1_prefixes = int(1/100 * gb.shape[0])
+    top01_prefixes = int(0.1/100 * gb.shape[0])
 
-    # gb.plot(kind='pie', y='src_addr_prefix')
+    total_sum = gb.in_bytes.sum()
 
-    gb.plot(kind='bar')
-    plt.xticks(range(0,top_prefixes),gb['src_addr_prefix'].values)
+    partial_sum = gb.in_bytes[:top10_prefixes].sum()
+    traffic_fraction = partial_sum / total_sum * 100
+    print("Fraction of traffic of 10% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+            .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
+    
+    partial_sum = gb.in_bytes[:top1_prefixes].sum()
+    traffic_fraction = partial_sum / total_sum * 100
+    print("Fraction of traffic of 1% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+            .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
+    
+    partial_sum = gb.in_bytes[:top01_prefixes].sum()
+    traffic_fraction = partial_sum / total_sum * 100
+    print("Fraction of traffic of 0.1% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+            .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
+
+    simpleBarPlot(gb, top10_prefixes,'10')
+    simpleBarPlot(gb, top1_prefixes,'1')
+    simpleBarPlot(gb, top01_prefixes,'01')
+
+def simpleBarPlot(df, nb_prefix, percentage):
+    df = df[:nb_prefix]
+    df.plot(kind='bar')
+    plt.xticks(range(0,nb_prefix),df['src_addr_prefix'].values)
     plt.xlabel("IP address prefix")
     plt.ylabel("Traffic volume (in bytes)")
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
-    fig.subplots_adjust(bottom=0.4)
-    plt.show()
-    # plt.savefig("test.png")
-    print(gb)
+    fig.subplots_adjust(bottom=0.2)
+    # plt.show()
+    plt.savefig("Top{}_Barplot.svg".format(percentage))
 
 
 def extractPrefix(x, prefix_length):
     return ip.ip_network('{}/{}'.format(x, prefix_length), strict=False)
 
-
-
 def searchIp(x, network):
-    # TODO: Check for IPv6 addresses
     binary_address = int(ip.ip_address(x))
     binary_mask = int(network.netmask)
     binary_network_addr = int(network.network_address)
@@ -92,32 +109,60 @@ def searchIp(x, network):
         print("True")
     return (binary_address & binary_mask == binary_network_addr)
 
-def question5(filename, new_names):
-    df = pd.read_csv(filename, header=None, delimiter=',', names=new_names, usecols=['src_addr', 'dest_addr', 'in_bytes'])
+def question5(filename, new_names, rows):
+    df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, usecols=['src_addr', 'dest_addr', 'in_bytes'], nrows=rows)
 
-    uliege_network = ip.IPv4Network('139.165.0.0/16')
+    uliege_network = ip.IPv4Network('139.165.0.0/16') # Real one
     montefiore_network = ip.IPv4Network('139.165.223.0/24')
     run_network = ip.IPv4Network('139.165.222.0/24')
 
-    uliege_index = [searchIp(i, uliege_network) for i in df['src_addr'].values]
-    uliege_index = [False for i in range(10)]
-    uliege_index[0] = True
-    print(df[uliege_index])
-    total_from_uliege = df[uliege_index]['in_bytes'].sum()
-    print(total_from_uliege)
-   
-     # total_from_montefiore = df[df['src_addr'] == montefiore_network]['in_bytes'].sum()
-    # total_from_run = df[df['src_addr'] == run_network]['in_bytes'].sum()
+    uliege_index_sent = [searchIp(i, uliege_network) for i in df['src_addr'].values]
+    uliege_index_rcv = [searchIp(i, uliege_network) for i in df['dest_addr'].values]
+    uliege_df_sent = df[uliege_index_sent]
+    uliege_df_rcv = df[uliege_index_rcv]
 
-    # frac_from_montefiore = total_from_montefiore / total_from_uliege
-    # frac_from_run = total_from_run / total_from_uliege
+    total_sent_from_uliege = uliege_df_sent['in_bytes'].sum()
+    total_rcv_from_uliege = uliege_df_rcv['in_bytes'].sum()
 
-    # print("Fraction from montefiore : {}".format(frac_from_montefiore))
-    # print("Fraction from RUN : {}".format(frac_from_run))
+    montefiore_sent_index = [searchIp(i, montefiore_network) for i in uliege_df_sent['src_addr'].values]
+    montefiore_rcv_index = [searchIp(i, montefiore_network) for i in uliege_df_rcv['dest_addr'].values]
+    montef_df_sent = uliege_df_sent[montefiore_sent_index]
+    montef_df_rcv = uliege_df_rcv[montefiore_rcv_index]
+
+    run_sent_index = [searchIp(i, run_network) for i in uliege_df_sent['src_addr'].values]
+    run_rcv_index = [searchIp(i, run_network) for i in uliege_df_rcv['dest_addr'].values]
+    run_df_sent = uliege_df_sent[run_sent_index]
+    run_df_rcv = uliege_df_rcv[run_rcv_index]
+
+
+    total_sent_from_montef = montef_df_sent['in_bytes'].sum()
+    total_rcv_at_montef = montef_df_rcv['in_bytes'].sum()
+
+    total_sent_from_run = run_df_sent['in_bytes'].sum()
+    total_rcv_at_run = run_df_rcv['in_bytes'].sum()
+
+    montef_sent_fraction = total_sent_from_montef/total_sent_from_uliege * 100
+    montef_rcv_fraction = total_rcv_at_montef/total_rcv_at_uliege * 100
+    run_sent_fraction = total_sent_from_run/total_sent_from_uliege * 100
+    run_rcv_fraction = total_rcv_at_run/total_rcv_at_uliege * 100
+
+    print("Fraction of traffic sent to RUN: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+            .format(run_sent_fraction, total_sent_from_run/10**9, total_sent_from_uliege/10**9))
+
+    print("Fraction of traffic received at RUN: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+                .format(run_rcv_fraction, total_rcv_from_run/10**9, total_rcv_from_uliege/10**9))
+
+    print("Fraction of traffic sent to Montefiore: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+                .format(montef_sent_fraction, total_sent_from_montef/10**9, total_sent_from_uliege/10**9))
+
+    print("Fraction of traffic received at Montefiore: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+            .format(montef_rcv_fraction, total_rcv_at_montef/10**9, total_rcv_from_uliege/10**9))
+
 
     
 if __name__ == '__main__':
-    filename = "/mnt/hdd/netflow_split89"
+    # filename = "/mnt/hdd/netflow_split89"
+    filename = "/mnt/hdd/netflow.csv"
     # filename = "data.csv"
 
     new_names = [
@@ -172,5 +217,10 @@ if __name__ == '__main__':
     #question1(filename, new_names)
     # question2(filename, new_names)
     # question3(filename, new_names)
-    question4(filename, new_names, 10)
-    # question5(filename, new_names)
+    # question4(filename, new_names, prefix_length=8, rows=10000000)
+    question5(filename, new_names, rows=100000)
+
+
+    # prefix_length = sys.argv[1]
+    # question4(filename, new_names, prefix_length=prefix_length, rows=92507632)
+
