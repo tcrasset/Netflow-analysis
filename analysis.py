@@ -1,5 +1,6 @@
 import pandas as pd
 from matplotlib import pyplot as plt
+import ipaddress as ip
 
 
 def create_graph(df, cum, is_log):
@@ -43,10 +44,76 @@ def question3(filename, new_names):
     print(df.groupby(['dest_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10])
 
 
-def question4(df):
-    # # QUESTION 4
-    gb = df.groupby(['src_addr'])[['in_bytes']].agg('sum').reset_index()
-    print(gb.sort_values(by=['in_bytes'], ascending=False))
+def question4(filename, new_names, percentage):
+    prefix_length = 12
+
+    df = pd.read_csv(filename, header=None, delimiter=',', names=new_names, usecols=['src_addr', 'in_bytes'], nrows=1000)
+
+    # Take a certain number of prefix bits
+    df['src_addr_prefix'] = df['src_addr'].apply(lambda x : extractPrefix(x, prefix_length))
+    df.drop(columns=['src_addr']) # To conserve memory
+    print(df['src_addr_prefix'][:10])
+
+    # Group by the prefix and sum the total volume of traffic
+    gb = df.groupby(['src_addr_prefix'])[['in_bytes']].agg('sum').reset_index()
+    gb.sort_values(by=['in_bytes'], ascending=False, inplace=True)
+
+    # Take only a certain percentage of prefixes
+    top_prefixes = int(percentage/100 * gb.shape[0])
+    print(top_prefixes)
+    gb = gb[:top_prefixes]
+
+    # gb.plot(kind='pie', y='src_addr_prefix')
+
+    gb.plot(kind='bar')
+    plt.xticks(range(0,top_prefixes),gb['src_addr_prefix'].values)
+    plt.xlabel("IP address prefix")
+    plt.ylabel("Traffic volume (in bytes)")
+    fig = plt.gcf()
+    fig.set_size_inches(10, 6)
+    fig.subplots_adjust(bottom=0.4)
+    plt.show()
+    # plt.savefig("test.png")
+    print(gb)
+
+
+def extractPrefix(x, prefix_length):
+    return ip.ip_network('{}/{}'.format(x, prefix_length), strict=False)
+
+
+
+def searchIp(x, network):
+    # TODO: Check for IPv6 addresses
+    binary_address = int(ip.ip_address(x))
+    binary_mask = int(network.netmask)
+    binary_network_addr = int(network.network_address)
+    # print(binary_address & binary_mask == binary_network_addr)
+    if(binary_address & binary_mask == binary_network_addr):
+        print("True")
+    return (binary_address & binary_mask == binary_network_addr)
+
+def question5(filename, new_names):
+    df = pd.read_csv(filename, header=None, delimiter=',', names=new_names, usecols=['src_addr', 'dest_addr', 'in_bytes'])
+
+    uliege_network = ip.IPv4Network('139.165.0.0/16')
+    montefiore_network = ip.IPv4Network('139.165.223.0/24')
+    run_network = ip.IPv4Network('139.165.222.0/24')
+
+    uliege_index = [searchIp(i, uliege_network) for i in df['src_addr'].values]
+    uliege_index = [False for i in range(10)]
+    uliege_index[0] = True
+    print(df[uliege_index])
+    total_from_uliege = df[uliege_index]['in_bytes'].sum()
+    print(total_from_uliege)
+   
+     # total_from_montefiore = df[df['src_addr'] == montefiore_network]['in_bytes'].sum()
+    # total_from_run = df[df['src_addr'] == run_network]['in_bytes'].sum()
+
+    # frac_from_montefiore = total_from_montefiore / total_from_uliege
+    # frac_from_run = total_from_run / total_from_uliege
+
+    # print("Fraction from montefiore : {}".format(frac_from_montefiore))
+    # print("Fraction from RUN : {}".format(frac_from_run))
 
     
 if __name__ == '__main__':
@@ -103,6 +170,7 @@ if __name__ == '__main__':
         'exid']
 
     #question1(filename, new_names)
-    question2(filename, new_names)
-    question3(filename, new_names)
-    # question4(filename, new_names)
+    # question2(filename, new_names)
+    # question3(filename, new_names)
+    question4(filename, new_names, 10)
+    # question5(filename, new_names)
