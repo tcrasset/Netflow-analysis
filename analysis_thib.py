@@ -4,14 +4,17 @@ import numpy as np
 import subprocess
 
 
-def create_graph(df, cum, is_log, name):
+def create_graph(df, cum, abs_leg, ord_leg, is_log, name, col_num=1):
     """Create a (complementary) cumulative distribution function plot
     
     Parameters:
-    df (pd.DataFrame): One-column data frame
+    df (pd.DataFrame): "col_num"-column data frame
     cum (int): 1 to plot the CDF, -1 to plot the CCDF
+    abs_leg (String): the abscissa legend
+    ord_leg (String): ordinate legend
     is_log (bool): True to have log axis, False otherwise
     name (String): The name of the file to save the plot
+    col_num (int): The number of columns of the data frame
 
     Return:
     /
@@ -21,9 +24,17 @@ def create_graph(df, cum, is_log, name):
     ax2 = ax.twinx()
 
     n_bins = 100
-    n, bins, patches = ax.hist(df, bins=n_bins, density=False)
-    n, bins, patches = ax2.hist(df, density=True, cumulative=cum, histtype='step',
-                                label='CDF', bins=n_bins, log=is_log, color='tab:orange')
+
+    # 1st column = x, 2nd column = y
+    if(col_num == 2):
+        dic = df.set_index('packet_size').T.to_dict('in_packets')
+        plt.hist(list(dic['in_packets'].keys()), weights=list(dic['in_packets'].values()), cumulative=cum, density=True, bins=n_bins, log=is_log)
+    else:
+        n, bins, patches = ax.hist(df, bins=n_bins, density=False)
+        n, bins, patches = ax2.hist(df, density=True, cumulative=cum, histtype='step',
+                                    label='CDF', bins=n_bins, log=is_log, color='tab:orange')
+    ax.set_xlabel(abs_leg)
+    ax.set_ylabel(ord_leg)
     plt.savefig(name+".pdf")
 
 
@@ -70,7 +81,7 @@ def create_pie(df, arg_pie, arg_leg, title, legend, name, interior=False):
     plt.savefig(name+".pdf")
 
 
-def question1(filename, new_names):
+def question1(filename, new_names, use_saved_model):
     """Plot the CDF of the packet size
 
     Parameters:
@@ -81,11 +92,21 @@ def question1(filename, new_names):
     /
 
     """
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes', 'in_packets'], nrows=92507632)
-    df['packet_size'] = df['in_bytes']/df['in_packets']
+    if(use_saved_model):
+        df = pd.read_pickle("df_size_nb_pkt.pkl")
+    else:
+        df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes', 'in_packets'], nrows=92507632)
+        df['packet_size'] = df['in_bytes']/df['in_packets']
+        df = df.drop(columns=['in_bytes'])
+
+        # Determining the number of packets of a certain size
+        df = df.groupby(['packet_size'])[['in_packets']].sum().sort_values(by=['packet_size'], ascending=True).reset_index()
+
+        # Saving the dataframe
+        df.to_pickle("df_size_nb_pkt.pkl")
 
     # Plotting and saving the CDF of packet size using linear axis.
-    create_graph(df['packet_size'], 1, False, "CDF_pkts_size")
+    create_graph(df, 1, "pkt size", "pkt density", False, "CDF_pkts_size", col_num=2)
     print("CDF plots of packet size have been saved")
 
     # Printing additional information to ease the analysis of the data.
@@ -107,28 +128,28 @@ def question2(filename, new_names):
     df = pd.read_csv(filename, header=0, names=new_names, usecols=['time_duration'], nrows=92507632) # 92 507 632 ok, 92507633 not ok, real = 92507636
 
     # Plotting and saving the CCDF of flow duration using linear axis.
-    create_graph(df['time_duration'], -1, False, "CCDF_flow_dur_lin")
+    create_graph(df['time_duration'], -1, "flow duration", "nb flows", False, "CCDF_flow_dur_lin")
 
     # Plotting and saving the CCDF of flow duration using logarithmic axis.
-    create_graph(df['time_duration'], -1, True, "CCDF_flow_dur_log")
+    create_graph(df['time_duration'], -1, "flow duration", "nb flows", True, "CCDF_flow_dur_log")
     print("CCDF plots (linear and log axis) of flow duration have been saved")
 
     df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes'], nrows=92507632)
 
     # Plotting and saving the CCDF of number of bytes in a flow using linear axis.
-    create_graph(df['in_bytes'], -1, False, "CCDF_nb_bytes_in_flow_lin")
+    create_graph(df['in_bytes'], -1, "nb bytes", "nb flows", False, "CCDF_nb_bytes_in_flow_lin")
 
     # Plotting and saving the CCDF of number of bytes in a flow using logarithmic axis.
-    create_graph(df['in_bytes'], -1, True, "CCDF_nb_bytes_in_flow_log")
+    create_graph(df['in_bytes'], -1, "nb bytes", "nb flows", True, "CCDF_nb_bytes_in_flow_log")
     print("CCDF plots (linear and log axis) of number of bytes in a flow have been saved")
 
     df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_packets'], nrows=92507632)
 
     # Plotting and saving the CCDF of number of packets in a flow using linear axis.
-    create_graph(df['in_packets'], -1, False, "CCDF_nb_pkts_in_flow_lin")
+    create_graph(df['in_packets'], -1, "nb pkts", "nb flows", False, "CCDF_nb_pkts_in_flow_lin")
 
     # Plotting and saving the CCDF of number of packets in a flow using logarithmic axis.
-    create_graph(df['in_packets'], -1, True, "CCDF_nb_pkts_in_flow_log")
+    create_graph(df['in_packets'], -1, "nb pkts", "nb flows", True, "CCDF_nb_pkts_in_flow_log")
     print("CCDF plots (linear and log axis) of number of packets in a flow have been saved")
 
 
@@ -246,10 +267,10 @@ if __name__ == '__main__':
         'engine_type',
         'exid']
 
-    use_saved = False
+    use_saved = True
 
-    question1(filename, new_names)
-    question2(filename, new_names)
-    question3(filename, new_names, use_saved_model=use_saved, sender=True)
-    question3(filename, new_names, use_saved_model=use_saved, sender=False)
+    question1(filename, new_names, use_saved)
+    # question2(filename, new_names)
+    # question3(filename, new_names, use_saved_model=use_saved, sender=True)
+    # question3(filename, new_names, use_saved_model=use_saved, sender=False)
     # question4(filename, new_names)
