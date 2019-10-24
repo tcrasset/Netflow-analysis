@@ -3,8 +3,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ipaddress as ip
 import sys
-from anytree import AnyNode, RenderTree, AsciiStyle, find
+from anytree import AnyNode, RenderTree, AsciiStyle, find, findall
 from anytree.exporter import DotExporter
+import subprocess
 
 
 def nodenamefunc(node):
@@ -232,27 +233,30 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
     df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
                         usecols=['src_addr', 'in_bytes'], nrows=rows)
 
-    countPrefixOccurence(df, "77.102.0.0/16")
     total_traffic = df['in_bytes'].sum()
 
     # Count the leave nodes and sum their traffic
     df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
     df = df.rename_axis(None).reset_index()
     df.columns = ['src_addr','src_addr_frequency','sum_in_bytes']
-    curr_root = AnyNode(ip="root",frequency=0,traffic=0) # Node pointing at upper_level subnets
 
+    # Node pointing at upper_level subnets
+    curr_root = AnyNode(ip="root",frequency=0,traffic=0) 
+
+    # Create a tree to aggregate subnets
     for cnt, prefix_length in enumerate(range(prefix_length_max,prefix_length_min,-prefix_length_step)): 
         if(cnt == 0):
+            # Process every IP address
             for _, row in df.iterrows():
                 subnet_of_ip = extractPrefix(row['src_addr'], prefix_length, True)
-                print(subnet_of_ip)
+               
                 # Find in the tree if the subnet exists alerady
                 existing_subnet = find(node=curr_root,
                                         filter_=lambda node: node.ip == subnet_of_ip,
                                         maxlevel = 2)
                 
-                subnet = None
                 # If not, create a new one
+                subnet = None
                 if(existing_subnet is None):
                     subnet = AnyNode(parent = curr_root,
                                     ip=subnet_of_ip,
@@ -304,6 +308,37 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
 
     # # Save the tree as a graph
     # createTree(curr_root)
+
+    # Count the number of prefix above a certain traffic threshold
+    max_level = int((prefix_length_max - prefix_length_min)/prefix_length_step) + 1
+
+    top10_prefix_nodes = findall(node=curr_root, 
+                            filter_ = lambda node: node.traffic/total_traffic >=0.10,
+                            maxlevel = max_level)
+    top1_prefix_nodes = findall(node=curr_root, 
+                            filter_ = lambda node: node.traffic/total_traffic >=0.01,
+                            maxlevel = max_level)
+    top01_prefix_nodes = findall(node=curr_root, 
+                            filter_ = lambda node: node.traffic/total_traffic >=0.001,
+                            maxlevel = max_level)
+    top10_prefix = [x.ip for x in top10_prefix_nodes]
+    top1_prefix = [x.ip for x in top1_prefix_nodes]
+    top01_prefix = [x.ip for x in top01_prefix_nodes]
+
+    print(top10_prefix)
+
+    with open('top10_prefix.txt', 'w') as f:
+        for item in top10_prefix:
+            f.write("{}\n".format(item))
+
+    with open('top1_prefix.txt', 'w') as f:
+        for item in top1_prefix:
+            f.write("{}\n".format(item))
+
+    with open('top01_prefix.txt', 'w') as f:
+        for item in top01_prefix:
+            f.write("{}\n".format(item))
+
 
 def countPrefixOccurence(df, network):
     result = df['src_addr'].apply(lambda x : searchIp(x, ip.ip_network(network))).values
@@ -436,6 +471,6 @@ if __name__ == '__main__':
     # question2(filename, new_names)
     # question3(filename, new_names, use_saved_model=use_saved, sender=True)
     # question3(filename, new_names, use_saved_model=use_saved, sender=False)
-    question4(filename, new_names,  32, 15, 8,  10)
+    question4(filename, new_names,  30, 15, 4,  10)
     # question5(filename, new_names, rows=100000)
 
