@@ -231,11 +231,12 @@ def question3(filename, new_names, use_saved_model=False, sender=True):
 
 
 def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_length_step,  rows, use_saved_model=False):
-    if(use_saved_model):
+    if(not use_saved_model):
         df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
                             usecols=['src_addr', 'in_bytes'], nrows=rows)
 
         total_traffic = df['in_bytes'].sum()
+        np.save('total_traf.npy', total_traffic)
 
         # Count the IP addresses and sum their traffic
         df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
@@ -245,6 +246,7 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
         df.to_pickle("df_groupby_q4.pkl")
     else:
         df = pd.read_pickle("df_groupby_q4.pkl")
+        total_traffic = np.load('total_traf.npy')
     # Node pointing at upper_level subnets
     curr_root = AnyNode(ip="root",frequency=0,traffic=0) 
 
@@ -477,7 +479,7 @@ if __name__ == '__main__':
     # question2(filename, new_names)
     # question3(filename, new_names, use_saved_model=use_saved, sender=True)
     # question3(filename, new_names, use_saved_model=use_saved, sender=False)
-    question4(filename, new_names, 24, 7, 8,  100, False)
+    question4(filename, new_names, 24, 7, 8,  100, True)
     # question5(filename, new_names, rows=100000)
 
 
