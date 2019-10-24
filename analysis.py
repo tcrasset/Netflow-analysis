@@ -65,11 +65,15 @@ def question4(filename, new_names, prefix_length, rows):
     root = AnyNode(ip="root",frequency=0,traffic=0)
 
     for index, row in df.iterrows():
-
+        # Get subnet of the current row
         subnet_of_ip = extractPrefix(row['src_addr'], prefix_length)
+
+        # Find in the tree if the subnet exists alerady
         existing_subnet = find(node=root,
                                 filter_=lambda node: node.ip == subnet_of_ip,
                                 maxlevel = 2)
+        
+        # If not, create a new one
         if(existing_subnet is None):
             subnet = AnyNode(parent = root,
                             ip=subnet_of_ip,
@@ -78,6 +82,7 @@ def question4(filename, new_names, prefix_length, rows):
         else:
             subnet = existing_subnet
 
+        # Add the child (the ip address) and update the parent (subnet)
         ip = AnyNode(parent = subnet,
                         ip = row['src_addr'], 
                         frequency = row['src_addr_frequency'], 
@@ -85,8 +90,11 @@ def question4(filename, new_names, prefix_length, rows):
         subnet.traffic += sum(x.traffic for x in subnet.children)
         subnet.frequency += sum(x.frequency for x in subnet.children)
     
+    # Update root node with it's childs attributes
     root.traffic += sum(x.traffic for x in root.children)
     root.frequency += sum(x.frequency for x in root.children)
+
+    # Render the tree in the console
     print(RenderTree(root,style=AsciiStyle()))
 
     # # Take only a certain percentage of prefixes
