@@ -230,19 +230,21 @@ def question3(filename, new_names, use_saved_model=False, sender=True):
         print(df_traf_vol)
 
 
-def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_length_step,  rows):
-    df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
-                        usecols=['src_addr', 'in_bytes'], nrows=rows)
+def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_length_step,  rows, use_saved_model=False):
+    if(use_saved_model):
+        df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
+                            usecols=['src_addr', 'in_bytes'], nrows=rows)
 
-    total_traffic = df['in_bytes'].sum()
+        total_traffic = df['in_bytes'].sum()
 
-    # Count the IP addresses and sum their traffic
-    df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
-    df = df.rename_axis(None).reset_index()
-    df.columns = ['src_addr','src_addr_frequency','sum_in_bytes']
+        # Count the IP addresses and sum their traffic
+        df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
+        df = df.rename_axis(None).reset_index()
+        df.columns = ['src_addr','src_addr_frequency','sum_in_bytes']
 
-    df.to_pickle("./df_groupby.pkl")
-
+        df.to_pickle("df_groupby_q4.pkl")
+    else:
+        df = pd.read_pickle("df_groupby_q4.pkl")
     # Node pointing at upper_level subnets
     curr_root = AnyNode(ip="root",frequency=0,traffic=0) 
 
@@ -417,8 +419,8 @@ def question5(filename, new_names, rows):
     
 if __name__ == '__main__':
     # filename = "/mnt/hdd/netflow_split89"
-    filename = "/mnt/hdd/netflow.csv"
-    # filename = "data.csv"
+    # filename = "/mnt/hdd/netflow.csv"
+    filename = "data.csv"
 
     new_names = [
         'time_start',
@@ -475,11 +477,11 @@ if __name__ == '__main__':
     # question2(filename, new_names)
     # question3(filename, new_names, use_saved_model=use_saved, sender=True)
     # question3(filename, new_names, use_saved_model=use_saved, sender=False)
-    question4(filename, new_names,  30, 15, 4,  10)
+    question4(filename, new_names, 24, 7, 8,  100, False)
     # question5(filename, new_names, rows=100000)
 
 
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['src_addr'], nrows=10000)
+    # df = pd.read_csv(filename, header=0, names=new_names, usecols=['src_addr'], nrows=10000)
     
     # ip = {'src_addr': ['192.168.56.1','192.168.56.5','155.168.56.1']}
     # df = pd.DataFrame(ip,columns= ['src_addr'])
