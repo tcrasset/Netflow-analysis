@@ -6,6 +6,7 @@ import sys
 from anytree import AnyNode, RenderTree, AsciiStyle, find, findall
 from anytree.exporter import DotExporter
 import subprocess
+import pickle
 
 
 def nodenamefunc(node):
@@ -235,10 +236,12 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
 
     total_traffic = df['in_bytes'].sum()
 
-    # Count the leave nodes and sum their traffic
+    # Count the IP addresses and sum their traffic
     df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
     df = df.rename_axis(None).reset_index()
     df.columns = ['src_addr','src_addr_frequency','sum_in_bytes']
+
+    df.to_pickle("./df_groupby.pkl")
 
     # Node pointing at upper_level subnets
     curr_root = AnyNode(ip="root",frequency=0,traffic=0) 
@@ -342,6 +345,7 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
 
 def countPrefixOccurence(df, network):
     result = df['src_addr'].apply(lambda x : searchIp(x, ip.ip_network(network))).values
+    result = np.append(result,True)
     return np.count_nonzero(result == True)
 
 
@@ -474,3 +478,11 @@ if __name__ == '__main__':
     question4(filename, new_names,  30, 15, 4,  10)
     # question5(filename, new_names, rows=100000)
 
+
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['src_addr'], nrows=10000)
+    
+    # ip = {'src_addr': ['192.168.56.1','192.168.56.5','155.168.56.1']}
+    # df = pd.DataFrame(ip,columns= ['src_addr'])
+
+    # cnt_sub_Uliege = countPrefixOccurence(df, '139.165.0.0/16')
+    # print(cnt_sub_Uliege)
