@@ -28,7 +28,7 @@ def create_graph(df, cum, abs_leg, ord_leg, is_log, name, col_num=1):
     # 1st column = x, 2nd column = y
     if(col_num == 2):
         dic = df.set_index('packet_size').T.to_dict('in_packets')
-        plt.hist(list(dic['in_packets'].keys()), weights=list(dic['in_packets'].values()), cumulative=cum, density=True, bins=n_bins, log=is_log)
+        plt.hist(list(dic['in_packets'].keys()), weights=list(dic['in_packets'].values()), histtype='step', cumulative=cum, density=False, bins=n_bins, log=is_log)
     else:
         n, bins, patches = ax.hist(df, bins=n_bins, density=False)
         n, bins, patches = ax2.hist(df, density=True, cumulative=cum, histtype='step',
@@ -106,7 +106,7 @@ def question1(filename, new_names, use_saved_model):
         df.to_pickle("df_size_nb_pkt.pkl")
 
     # Plotting and saving the CDF of packet size using linear axis.
-    create_graph(df, 1, "pkt size", "pkt density", False, "CDF_pkts_size", col_num=2)
+    create_graph(df, 1, "pkt size (bytes)", "pkt density", False, "CDF_pkts_size", col_num=2)
     print("CDF plots of packet size have been saved")
 
     # Printing additional information to ease the analysis of the data.
@@ -128,10 +128,10 @@ def question2(filename, new_names):
     df = pd.read_csv(filename, header=0, names=new_names, usecols=['time_duration'], nrows=92507632) # 92 507 632 ok, 92507633 not ok, real = 92507636
 
     # Plotting and saving the CCDF of flow duration using linear axis.
-    create_graph(df['time_duration'], -1, "flow duration", "nb flows", False, "CCDF_flow_dur_lin")
+    create_graph(df['time_duration'], -1, "flow duration (sec)", "nb flows", False, "CCDF_flow_dur_lin")
 
     # Plotting and saving the CCDF of flow duration using logarithmic axis.
-    create_graph(df['time_duration'], -1, "flow duration", "nb flows", True, "CCDF_flow_dur_log")
+    create_graph(df['time_duration'], -1, "flow duration (sec)", "nb flows", True, "CCDF_flow_dur_log")
     print("CCDF plots (linear and log axis) of flow duration have been saved")
 
     df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes'], nrows=92507632)
@@ -174,9 +174,13 @@ def question3(filename, new_names, use_saved_model=False, sender=True):
         if(sender):
             df_traf_vol = pd.read_pickle("df_traf_vol_send.pkl")
             create_pie(df_traf_vol, "in_bytes", at, "Traffic Volume: Sender", "src ports", "pie_traf_vol_sender")
+            print("Top-ten sender port numbers ordered by decreasing amount of traffic volume")
         else:
             df_traf_vol = pd.read_pickle("df_traf_vol_rcv.pkl")
             create_pie(df_traf_vol, "in_bytes", at, "Traffic Volume: Receiver", "rcv ports", "pie_traf_vol_rcver")
+            print("Top-ten receiver port numbers ordered by decreasing amount of traffic volume")
+
+        print(df_traf_vol)
 
     else:
         df = pd.read_csv(filename, header=0, names=new_names, usecols=[at, 'in_bytes'], nrows=92507632)
@@ -191,17 +195,19 @@ def question3(filename, new_names, use_saved_model=False, sender=True):
 
         # Computing the percentage of traffic volume for the top-ten sender (or receiver) port number and for the "other"
         df_traf_vol['volume_perc'] = df_traf_vol['in_bytes']/tot_volume
-        print("Top-ten sender port numbers ordered by decreasing amount of traffic volume")
-        print(df_traf_vol)
 
         if(sender):
             # Saving the the top-ten sender port number informations in a pkl file
             df_traf_vol.to_pickle("df_traf_vol_send.pkl")
             create_pie(df_traf_vol, "in_bytes", at, "Traffic Volume: Sender", "src ports", "pie_traf_vol_sender")
+            print("Top-ten sender port numbers ordered by decreasing amount of traffic volume")
         else:
             # Saving the the top-ten receiver port number informations in a pkl file
             df_traf_vol.to_pickle("df_traf_vol_rcv.pkl")
             create_pie(df_traf_vol, "in_bytes", at, "Traffic Volume: Receiver", "rcv ports", "pie_traf_vol_rcver")
+            print("Top-ten receiver port numbers ordered by decreasing amount of traffic volume")
+
+        print(df_traf_vol)
 
 
 def question4(df):
@@ -267,10 +273,10 @@ if __name__ == '__main__':
         'engine_type',
         'exid']
 
-    use_saved = True
+    use_saved = False
 
     question1(filename, new_names, use_saved)
-    # question2(filename, new_names)
-    # question3(filename, new_names, use_saved_model=use_saved, sender=True)
-    # question3(filename, new_names, use_saved_model=use_saved, sender=False)
+    question2(filename, new_names)
+    question3(filename, new_names, use_saved_model=use_saved, sender=True)
+    question3(filename, new_names, use_saved_model=use_saved, sender=False)
     # question4(filename, new_names)
