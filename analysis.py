@@ -56,46 +56,106 @@ def question4(filename, new_names, prefix_length, rows):
     df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
     df = df.rename_axis(None).reset_index()
     df.columns = ['src_addr','src_addr_frequency','sum_in_bytes']
-    df.sort_values(by=['sum_in_bytes'], ascending=False, inplace=True)
-    df['percentage'] = (df['sum_in_bytes']/total_traffic*100)
-    df['percentage_cum'] = df['percentage'].cumsum()
+    # df.sort_values(by=['sum_in_bytes'], ascending=False, inplace=True)
+    # df['percentage'] = (df['sum_in_bytes']/total_traffic*100)
+    # df['percentage_cum'] = df['percentage'].cumsum()
     # print(df)
 
-    # Create and populate tree starting from the leaves (IP addresses)
-    root = AnyNode(ip="root",frequency=0,traffic=0)
+    # # Create and populate tree starting from the leaves (IP addresses)
+    # root = AnyNode(ip="root",frequency=0,traffic=0)
 
-    for _, row in df.iterrows():
-        # Get subnet of the current row
-        subnet_of_ip = extractPrefix(row['src_addr'], prefix_length)
+    # for _, row in df.iterrows():
+    #     # Get subnet of the current row
+    #     subnet_of_ip = extractPrefix(row['src_addr'], prefix_length)
 
-        # Find in the tree if the subnet exists alerady
-        existing_subnet = find(node=root,
-                                filter_=lambda node: node.ip == subnet_of_ip,
-                                maxlevel = 2)
+    #     # Find in the tree if the subnet exists alerady
+    #     existing_subnet = find(node=root,
+    #                             filter_=lambda node: node.ip == subnet_of_ip,
+    #                             maxlevel = 2)
         
-        # If not, create a new one
-        if(existing_subnet is None):
-            subnet = AnyNode(parent = root,
-                            ip=subnet_of_ip,
-                            frequency=0,
-                            traffic=0)
-        else:
-            subnet = existing_subnet
+    #     # If not, create a new one
+    #     if(existing_subnet is None):
+    #         subnet = AnyNode(parent = root,
+    #                         ip=subnet_of_ip,
+    #                         frequency=0,
+    #                         traffic=0)
+    #     else:
+    #         subnet = existing_subnet
 
-        # Add the child (the ip address) and update the parent (subnet)
-        ip = AnyNode(parent = subnet,
-                        ip = row['src_addr'], 
-                        frequency = row['src_addr_frequency'], 
-                        traffic = row['sum_in_bytes'])
-        subnet.traffic = sum(x.traffic for x in subnet.children)
-        subnet.frequency = sum(x.frequency for x in subnet.children)
+    #     # Add the child (the ip address) and update the parent (subnet)
+    #     ip = AnyNode(parent = subnet,
+    #                     ip = row['src_addr'], 
+    #                     frequency = row['src_addr_frequency'], 
+    #                     traffic = row['sum_in_bytes'])
+    #     subnet.traffic = sum(x.traffic for x in subnet.children)
+    #     subnet.frequency = sum(x.frequency for x in subnet.children)
     
+    curr_root = AnyNode(ip="root",frequency=0,traffic=0) # Node pointing at upper_level subnets
+
+    for prefix_length in range(32,27,-2): 
+        if(prefix_length == 32):
+            for _, row in df.iterrows():
+                subnet_of_ip = extractPrefix(row['src_addr'], prefix_length)
+                print(subnet_of_ip)
+                # Find in the tree if the subnet exists alerady
+                existing_subnet = find(node=curr_root,
+                                        filter_=lambda node: node.ip == subnet_of_ip,
+                                        maxlevel = 2)
+                
+                subnet = None
+                # If not, create a new one
+                if(existing_subnet is None):
+                    subnet = AnyNode(parent = curr_root,
+                                    ip=subnet_of_ip,
+                                    frequency=0,
+                                    traffic=0)
+                else:
+                    subnet = existing_subnet
+                    
+
+                # Add the child (the ip address) and update the parent (subnet)
+                new_node = AnyNode(parent = subnet,
+                                ip = row['src_addr'], 
+                                frequency = row['src_addr_frequency'], 
+                                traffic = row['sum_in_bytes'])
+                subnet.traffic += row['sum_in_bytes']
+                subnet.frequency += row['src_addr_frequency']
+
+        else: 
+            new_root = AnyNode(ip="new_root",frequency=0,traffic=0) # Node pointing at upper_level subnets
+
+            # The current root contains the subnets
+            for subnet in curr_root.children:
+                subnet_ip = str(subnet.ip)[:-3]
+                subnet_of_subnet = extractPrefix(subnet_ip, prefix_length)
+
+                # Find in the tree if the subnet exists alerady
+                existing_subnet = find(node=new_root,
+                                        filter_= lambda node: node.ip == subnet_of_subnet,
+                                        maxlevel = 2)
+                
+                # If not, create a new one and add the current subnet as his child
+                if(existing_subnet is None):
+                    traffic = subnet.traffic
+                    AnyNode(parent = new_root,
+                                children= [subnet],
+                                ip=subnet_of_subnet,
+                                frequency=subnet.frequency,
+                                traffic=subnet.traffic)
+                else:
+                    subnet.parent = existing_subnet
+                    existing_subnet.traffic += subnet.traffic
+                    existing_subnet.frequency += subnet.frequency
+            # Update the current root
+            curr_root = new_root
+            curr_root.ip = "root"
+
     # Update root node with it's childs attributes
-    root.traffic += sum(x.traffic for x in root.children)
-    root.frequency += sum(x.frequency for x in root.children)
+    curr_root.traffic = sum(x.traffic for x in curr_root.children)
+    curr_root.frequency = sum(x.frequency for x in curr_root.children)
 
     # Render the tree in the console
-    print(RenderTree(root,style=AsciiStyle()))
+    # print(RenderTree(curr_root,style=AsciiStyle()))
 
     # # Take only a certain percentage of prefixes
     # top10_prefixes = int(10/100 * gb.shape[0])
@@ -256,7 +316,7 @@ if __name__ == '__main__':
     #question1(filename, new_names)
     # question2(filename, new_names)
     # question3(filename, new_names)
-    question4(filename, new_names, prefix_length=8, rows=5000)
+    question4(filename, new_names, prefix_length=8, rows=500)
     # question5(filename, new_names, rows=100000)
 
 
