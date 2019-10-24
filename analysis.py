@@ -50,18 +50,17 @@ def question4(filename, new_names, prefix_length, rows):
     df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
                         usecols=['src_addr', 'in_bytes'], nrows=rows)
 
-    # Take a certain number of prefix bits
-    df['src_addr_prefix'] = df['src_addr'].apply(lambda x : extractPrefix(x, prefix_length))
-    df.drop(columns=['src_addr']) # To conserve memory
-
     total_traffic = df['in_bytes'].sum()
-    # Group by the prefix and sum the total volume of traffic
-    gb = df.groupby(['src_addr_prefix'], sort=False)[['in_bytes']].agg('sum').reset_index()
-    gb.sort_values(by=['in_bytes'], ascending=False, inplace=True)
-    
-    gb['percentage'] = (gb['in_bytes']/total_traffic*100)
-    gb['percentage_cum'] = gb['percentage'].cumsum()
-    print(gb)
+
+    # Count the leave nodes and sum their traffic
+    df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
+    df = df.rename_axis(None).reset_index()
+    df.columns = ['src_addr','src_addr_frequency','sum_in_bytes']
+    df.sort_values(by=['sum_in_bytes'], ascending=False, inplace=True)
+    df['percentage'] = (df['sum_in_bytes']/total_traffic*100)
+    df['percentage_cum'] = df['percentage'].cumsum()
+    print(df)
+
 
 
     # # Take only a certain percentage of prefixes
@@ -223,7 +222,7 @@ if __name__ == '__main__':
     #question1(filename, new_names)
     # question2(filename, new_names)
     # question3(filename, new_names)
-    question4(filename, new_names, prefix_length=24, rows=1000000)
+    question4(filename, new_names, prefix_length=24, rows=10000)
     # question5(filename, new_names, rows=100000)
 
 
