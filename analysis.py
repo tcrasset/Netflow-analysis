@@ -235,11 +235,11 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
                         usecols=['src_addr', 'in_bytes'], nrows=rows)
 
     total_traffic = df['in_bytes'].sum()
-
     # Count the IP addresses and sum their traffic
     df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
     df = df.rename_axis(None).reset_index()
     df.columns = ['src_addr','src_addr_frequency','sum_in_bytes']
+    countSubnets(df, "77.102.0.0", 24)
 
     df.to_pickle("./df_groupby.pkl")
 
@@ -343,10 +343,14 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
             f.write("{}\n".format(item))
 
 
-def countPrefixOccurence(df, network):
-    result = df['src_addr'].apply(lambda x : searchIp(x, ip.ip_network(network))).values
-    result = np.append(result,True)
-    return np.count_nonzero(result == True)
+def countSubnets(df, network, mask):
+    df['src_adrr_prefix'] = df['src_addr'].apply(lambda x : extractPrefix(x, mask, True))
+    print(df['src_adrr_prefix'])
+    test = df['src_adrr_prefix'].apply(lambda x : searchIp(x.split('/')[0], ip.ip_network(network)))
+
+    print(test)
+    # result = np.append(result,True)
+    # return np.count_nonzero(result == True)
 
 
 def extractPrefix(x, prefix_length, as_string):
