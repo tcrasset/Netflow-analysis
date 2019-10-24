@@ -64,7 +64,7 @@ def question4(filename, new_names, prefix_length, rows):
     # Create and populate tree starting from the leaves (IP addresses)
     root = AnyNode(ip="root",frequency=0,traffic=0)
 
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         # Get subnet of the current row
         subnet_of_ip = extractPrefix(row['src_addr'], prefix_length)
 
@@ -87,8 +87,8 @@ def question4(filename, new_names, prefix_length, rows):
                         ip = row['src_addr'], 
                         frequency = row['src_addr_frequency'], 
                         traffic = row['sum_in_bytes'])
-        subnet.traffic += sum(x.traffic for x in subnet.children)
-        subnet.frequency += sum(x.frequency for x in subnet.children)
+        subnet.traffic = sum(x.traffic for x in subnet.children)
+        subnet.frequency = sum(x.frequency for x in subnet.children)
     
     # Update root node with it's childs attributes
     root.traffic += sum(x.traffic for x in root.children)
@@ -256,7 +256,7 @@ if __name__ == '__main__':
     #question1(filename, new_names)
     # question2(filename, new_names)
     # question3(filename, new_names)
-    question4(filename, new_names, prefix_length=8, rows=50)
+    question4(filename, new_names, prefix_length=8, rows=5000)
     # question5(filename, new_names, rows=100000)
 
 
