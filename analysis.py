@@ -20,49 +20,213 @@ def createTree(root):
                 # edgeattrfunc=edgeattrfunc,
                 edgetypefunc=edgetypefunc).to_picture("tree.pdf")
 
-def create_graph(df, cum, is_log):
+def create_graph(df, cum, abs_leg, ord_leg, is_log, name, col_num=1):
+    """Create a (complementary) cumulative distribution function plot
+    
+    Parameters:
+    df (pd.DataFrame): "col_num"-column data frame
+    cum (int): 1 to plot the CDF, -1 to plot the CCDF
+    abs_leg (String): the abscissa legend
+    ord_leg (String): ordinate legend
+    is_log (bool): True to have log axis, False otherwise
+    name (String): The name of the file to save the plot
+    col_num (int): The number of columns of the data frame
+
+    Return:
+    /
+
+    """
     fig, ax = plt.subplots()
     ax2 = ax.twinx()
 
     n_bins = 100
-    n, bins, patches = ax.hist(df, bins=n_bins, density=False)
-    n, bins, patches = ax2.hist(df, density=True, cumulative=cum, histtype='step',
-                                label='CDF', bins=n_bins, log=is_log, color='tab:orange')
 
-    plt.show()
+    # 1st column = x, 2nd column = y
+    if(col_num == 2):
+        dic = df.set_index('packet_size').T.to_dict('in_packets')
+        plt.hist(list(dic['in_packets'].keys()), weights=list(dic['in_packets'].values()), histtype='step', cumulative=cum, density=False, bins=n_bins, log=is_log)
+    else:
+        n, bins, patches = ax.hist(df, bins=n_bins, density=False)
+        n, bins, patches = ax2.hist(df, density=True, cumulative=cum, histtype='step',
+                                    label='CDF', bins=n_bins, log=is_log, color='tab:orange')
+    ax.set_xlabel(abs_leg)
+    ax.set_ylabel(ord_leg)
+    plt.savefig(name+".pdf")
 
 
-def question1(filename, new_names):
-    # QUESTION 1: CDF of packet size
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes', 'in_packets'])
-    create_graph(df['in_bytes']/df['in_packets'], 1, False)
+def create_pie(df, arg_pie, arg_leg, title, legend, name, interior=False):
+    """Create a (complementary) cumulative distribution function plot
+    
+    Parameters:
+    df (pd.DataFrame): Three-column data frame (1st: arg_leg, 2nd: arg_pie, 3rd: "volume_perc" -> percentage of volume per instance of arg_leg)
+    arg_pie (String): The name of the column used to compute the percentage volume
+    arg_leg (String): The name of the column used as a legend for the percentage
+    title (String): Title of the graph
+    legend (String): Title of the legend of the graph
+    name (String): The name of the file to save the plot
+    interior (bool): True to have the percentages displayed inside the pie plot, False otherwise.
+
+    Return:
+    /
+
+    """
+    df = df.sort_values(by=[arg_pie], ascending=False).reset_index()
+    fig, ax = plt.subplots(figsize=(10, 6), subplot_kw=dict(aspect="equal"))
+
+    if interior:
+        wedges, texts, autotexts = ax.pie(df[arg_pie], autopct='%1.1f%%', textprops=dict(color="w"))
+        plt.setp(autotexts, size=8, weight="bold")
+        
+    else:
+        col = ["b", "darkorange", "g", "lime", "r", "grey", "yellow", "magenta", "royalblue", "burlywood", "black"]
+        wedges, texts = ax.pie(df[arg_pie], startangle=180, counterclock=False, colors=col)
+        add_args = dict(arrowprops=dict(arrowstyle="-"), zorder=0, va="center")
+
+        # Handling the arrows display.
+        for i, p in enumerate(wedges):
+            ang = (p.theta2 - p.theta1)/2. + p.theta1
+            y = np.sin(np.deg2rad(ang))
+            x = np.cos(np.deg2rad(ang))
+            horizontalalignment = {-1: "right", 1: "left"}[int(np.sign(x))]
+            connectionstyle = "angle,angleA=0,angleB={}".format(ang)
+            add_args["arrowprops"].update({"connectionstyle": connectionstyle})
+            ax.annotate(df["volume_perc"].loc[i].round(6), xy=(x, y), xytext=(1.35*np.sign(x), 1.4*y), horizontalalignment=horizontalalignment, **add_args)
+
+    ax.legend(wedges, df[arg_leg], title=legend, loc="upper right", bbox_to_anchor=(1, 0, 0.5, 1))
+    ax.set_title(title)
+    plt.savefig(name+".pdf")
+
+
+def question1(filename, new_names, use_saved_model):
+    """Plot the CDF of the packet size
+
+    Parameters:
+    filename (String): The name of the file containing the data
+    new_names (String): The new names of the columns of the data
+
+    Return:
+    /
+
+    """
+    if(use_saved_model):
+        df = pd.read_pickle("df_size_nb_pkt.pkl")
+    else:
+        df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes', 'in_packets'], nrows=92507632)
+        df['packet_size'] = df['in_bytes']/df['in_packets']
+        df = df.drop(columns=['in_bytes'])
+
+        # Determining the number of packets of a certain size
+        df = df.groupby(['packet_size'])[['in_packets']].sum().sort_values(by=['packet_size'], ascending=True).reset_index()
+
+        # Saving the dataframe
+        df.to_pickle("df_size_nb_pkt.pkl")
+
+    # Plotting and saving the CDF of packet size using linear axis.
+    create_graph(df, 1, "pkt size (bytes)", "pkt density", False, "CDF_pkts_size", col_num=2)
+    print("CDF plots of packet size have been saved")
+
+    # Printing additional information to ease the analysis of the data.
+    info = df.loc[:,"packet_size"].describe()
+    print(info)
 
 
 def question2(filename, new_names):
-    # QUESTION 2: CCDF of flow duration, linear axis
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['time_duration', 'in_bytes', 'in_packets'])
-    create_graph(df['time_duration'], -1, False)
-    create_graph(df['time_duration'], -1, True)
+    """Plot the CCDF of the packet size
 
-    # QUESTION 2: CCDF of number of bytes in a flow, linear axis
-    create_graph(df['in_bytes'], -1, False)
-    create_graph(df['in_bytes'], -1, True)
+    Parameters:
+    filename (String): The name of the file containing the data
+    new_names (String): The new names of the columns of the data
 
-    # QUESTION 2: CCDF of number of packets in a flow, linear axis
-    create_graph(df['in_packets'], -1, False)
-    create_graph(df['in_packets'], -1, True)
+    Return:
+    /
+
+    """
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['time_duration'], nrows=92507632) # 92 507 632 ok, 92507633 not ok, real = 92507636
+
+    # Plotting and saving the CCDF of flow duration using linear axis.
+    create_graph(df['time_duration'], -1, "flow duration (sec)", "nb flows", False, "CCDF_flow_dur_lin")
+
+    # Plotting and saving the CCDF of flow duration using logarithmic axis.
+    create_graph(df['time_duration'], -1, "flow duration (sec)", "nb flows", True, "CCDF_flow_dur_log")
+    print("CCDF plots (linear and log axis) of flow duration have been saved")
+
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes'], nrows=92507632)
+
+    # Plotting and saving the CCDF of number of bytes in a flow using linear axis.
+    create_graph(df['in_bytes'], -1, "nb bytes", "nb flows", False, "CCDF_nb_bytes_in_flow_lin")
+
+    # Plotting and saving the CCDF of number of bytes in a flow using logarithmic axis.
+    create_graph(df['in_bytes'], -1, "nb bytes", "nb flows", True, "CCDF_nb_bytes_in_flow_log")
+    print("CCDF plots (linear and log axis) of number of bytes in a flow have been saved")
+
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_packets'], nrows=92507632)
+
+    # Plotting and saving the CCDF of number of packets in a flow using linear axis.
+    create_graph(df['in_packets'], -1, "nb pkts", "nb flows", False, "CCDF_nb_pkts_in_flow_lin")
+
+    # Plotting and saving the CCDF of number of packets in a flow using logarithmic axis.
+    create_graph(df['in_packets'], -1, "nb pkts", "nb flows", True, "CCDF_nb_pkts_in_flow_log")
+    print("CCDF plots (linear and log axis) of number of packets in a flow have been saved")
 
 
-def question3(filename, new_names):
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['src_port', 'in_bytes'])
-    print(df.groupby(['src_port'])[['in_bytes']].sum().reset_index()
-            .sort_values(by=['in_bytes'], ascending=False)[:10])
+def question3(filename, new_names, use_saved_model=False, sender=True):
+    """Create 2 tables and 2 pie charts listing the top-ten port number by sender and receiver traffic volume 
 
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['dest_port', 'in_bytes'])
-    print(df.groupby(['dest_port'])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10])
+    Parameters:
+    filename (String): The name of the file containing the data
+    new_names (String): The new names of the columns of the data
+    sender (bool): True to consider the sender traffic volume, Flase to consider the receiver traffic volume
+
+    Return:
+    /
+
+    """
+    if(sender):
+        at =  'src_port'
+    else:
+        at =  'dest_port'
+
+    if(use_saved_model):
+        if(sender):
+            df_traf_vol = pd.read_pickle("df_traf_vol_send.pkl")
+            create_pie(df_traf_vol, "in_bytes", at, "Traffic Volume: Sender", "src ports", "pie_traf_vol_sender")
+            print("Top-ten sender port numbers ordered by decreasing amount of traffic volume")
+        else:
+            df_traf_vol = pd.read_pickle("df_traf_vol_rcv.pkl")
+            create_pie(df_traf_vol, "in_bytes", at, "Traffic Volume: Receiver", "rcv ports", "pie_traf_vol_rcver")
+            print("Top-ten receiver port numbers ordered by decreasing amount of traffic volume")
+
+        print(df_traf_vol)
+
+    else:
+        df = pd.read_csv(filename, header=0, names=new_names, usecols=[at, 'in_bytes'], nrows=92507632)
+        
+        # Summing the traffic volume (in bytes) of the different sender (or receiver) port number, taking the top-ten by traffic volume.
+        df_traf_vol = df.groupby([at])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10]
+
+        tot_volume = df['in_bytes'].sum()
+
+        # Adding the remaining traffic volume under the name "other" (useful when plotting the pie charts).
+        df_traf_vol = df_traf_vol.append({at : 'other' , 'in_bytes' : tot_volume - df_traf_vol['in_bytes'].sum()} , ignore_index=True)
+
+        # Computing the percentage of traffic volume for the top-ten sender (or receiver) port number and for the "other"
+        df_traf_vol['volume_perc'] = df_traf_vol['in_bytes']/tot_volume
+
+        if(sender):
+            # Saving the the top-ten sender port number informations in a pkl file
+            df_traf_vol.to_pickle("df_traf_vol_send.pkl")
+            create_pie(df_traf_vol, "in_bytes", at, "Traffic Volume: Sender", "src ports", "pie_traf_vol_sender")
+            print("Top-ten sender port numbers ordered by decreasing amount of traffic volume")
+        else:
+            # Saving the the top-ten receiver port number informations in a pkl file
+            df_traf_vol.to_pickle("df_traf_vol_rcv.pkl")
+            create_pie(df_traf_vol, "in_bytes", at, "Traffic Volume: Receiver", "rcv ports", "pie_traf_vol_rcver")
+            print("Top-ten receiver port numbers ordered by decreasing amount of traffic volume")
+
+        print(df_traf_vol)
 
 
-def question4(filename, new_names, prefix_length, rows):
+def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_length_step,  rows):
     df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
                         usecols=['src_addr', 'in_bytes'], nrows=rows)
 
@@ -74,7 +238,7 @@ def question4(filename, new_names, prefix_length, rows):
     df.columns = ['src_addr','src_addr_frequency','sum_in_bytes']
     curr_root = AnyNode(ip="root",frequency=0,traffic=0) # Node pointing at upper_level subnets
 
-    for cnt, prefix_length in enumerate(range(8,4,-2)): 
+    for cnt, prefix_length in enumerate(range(prefix_length_max,prefix_length_min,-prefix_length_step)): 
         if(cnt == 0):
             for _, row in df.iterrows():
                 subnet_of_ip = extractPrefix(row['src_addr'], prefix_length, True)
