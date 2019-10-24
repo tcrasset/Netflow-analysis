@@ -373,11 +373,27 @@ def countSubnets(df, network, prefix_length):
     """
     Counts, from the unique networks with prefix length of `prefix_length` in the dataframe, 
     which ones are subnets of the given network `network`
+
+    df (pd.Dataframe): dataframe of the network trace
+    network (String): network address
+    prefix_length (int): number of bits to use as a prefix
+
+    Return: (int) number of subnets
+
     """
+
+    def lambda_func(network_to_test):
+        try:
+            result = ip.ip_network(network_to_test).subnet_of(network)
+            return result
+        except TypeError: #if we compare IPv4 and IPv6:
+            return False
+    
     network = ip.ip_network(network, strict=False)
-    df['src_adrr_prefix'] = df['src_addr'].apply(lambda x : extractPrefix(x, mask, True))
-    test = df['src_adrr_prefix'].drop_duplicates().apply(lambda x : ip.ip_network(x).subnet_of(network))
-    return np.count_nonzero(test.values == True)
+    df['src_adrr_prefix'] = df['src_addr'].apply(lambda x : extractPrefix(x, prefix_length, True))
+    df = df['src_adrr_prefix'].drop_duplicates()
+    is_subnet = df.apply(lambda_func)
+    return np.count_nonzero(is_subnet.values == True)
 
 
 
@@ -385,6 +401,11 @@ def extractPrefix(x, prefix_length, as_string):
     """
     Returns an IPNetwork object of the ipaddress module created using
     ip address `x` given as string with a prefix length of `prefix_length`
+    
+    x (String): ip address
+    prefix_length (int): number of bits to use as a prefix
+    as_string (boolean) : 
+
     """
     if(as_string):
         return str(ip.ip_network('{}/{}'.format(x, prefix_length), strict=False))
@@ -402,18 +423,36 @@ def searchIp(x, network):
     binary_address = int(ip.ip_address(x))
     binary_mask = int(network.netmask)
     binary_network_addr = int(network.network_address)
-    # print(binary_address & binary_mask == binary_network_addr)
-    if(binary_address & binary_mask == binary_network_addr):
-        print("True")
     return (binary_address & binary_mask == binary_network_addr)
 
 def question5(filename, new_names, rows):
-    df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, usecols=['src_addr', 'dest_addr', 'in_bytes'], nrows=rows)
+    """Compute the traffic fraction sent/received from/at montefiore and run with
+    respec to the total traffic sent/received from/at the Uliege network.
 
-    uliege_network = ip.IPv4Network('139.165.0.0/16') # Real one
+    Prints the results to the console.
+
+    This works if we have the anonymized IP addresses of the three subnetworks
+    
+    Parameters:
+
+    filename (String): The name of the file containing the data
+    new_names (String): The new names of the columns of the data
+    rows (int): Number of rows in the dataframe to consider
+
+    Return : /
+    """
+    df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
+                usecols=['src_addr', 'dest_addr', 'in_bytes'], nrows=rows)
+
+    print("Read dataframe")
+
+    uliege_network = ip.IPv4Network('139.91.0.0/16') #Anonymized address we found 
+    # The following are the real network addresses of the 2 networks.
+    # To get the correct fractions, one has to use the anonymized addresses
     montefiore_network = ip.IPv4Network('139.165.223.0/24')
     run_network = ip.IPv4Network('139.165.222.0/24')
-
+    
+    # Create dataframes for Uliege in terms of sent and received traffic volume
     uliege_index_sent = [searchIp(i, uliege_network) for i in df['src_addr'].values]
     uliege_index_rcv = [searchIp(i, uliege_network) for i in df['dest_addr'].values]
     uliege_df_sent = df[uliege_index_sent]
@@ -422,42 +461,46 @@ def question5(filename, new_names, rows):
     total_sent_from_uliege = uliege_df_sent['in_bytes'].sum()
     total_rcv_at_uliege = uliege_df_rcv['in_bytes'].sum()
 
-    montefiore_sent_index = [searchIp(i, montefiore_network) for i in uliege_df_sent['src_addr'].values]
-    montefiore_rcv_index = [searchIp(i, montefiore_network) for i in uliege_df_rcv['dest_addr'].values]
-    montef_df_sent = uliege_df_sent[montefiore_sent_index]
-    montef_df_rcv = uliege_df_rcv[montefiore_rcv_index]
+    print("Total sent from Uliege : {:.1f} GB".format(total_sent_from_uliege/10**9))
+    print("Total received at Uliege : {:.1f} GB".format(total_rcv_at_uliege/10**9))
 
-    run_sent_index = [searchIp(i, run_network) for i in uliege_df_sent['src_addr'].values]
-    run_rcv_index = [searchIp(i, run_network) for i in uliege_df_rcv['dest_addr'].values]
-    run_df_sent = uliege_df_sent[run_sent_index]
-    run_df_rcv = uliege_df_rcv[run_rcv_index]
+    # # Create dataframes for montefiore and run in terms of sent and received traffic volume
+    # montefiore_sent_index = [searchIp(i, montefiore_network) for i in uliege_df_sent['src_addr'].values]
+    # montefiore_rcv_index = [searchIp(i, montefiore_network) for i in uliege_df_rcv['dest_addr'].values]
+    # montef_df_sent = uliege_df_sent[montefiore_sent_index]
+    # montef_df_rcv = uliege_df_rcv[montefiore_rcv_index]
 
-
-    total_sent_from_montef = montef_df_sent['in_bytes'].sum()
-    total_rcv_at_montef = montef_df_rcv['in_bytes'].sum()
-
-    total_sent_from_run = run_df_sent['in_bytes'].sum()
-    total_rcv_at_run = run_df_rcv['in_bytes'].sum()
-
-    montef_sent_fraction = total_sent_from_montef/total_sent_from_uliege * 100
-    montef_rcv_fraction = total_rcv_at_montef/total_rcv_at_uliege * 100
-    run_sent_fraction = total_sent_from_run/total_sent_from_uliege * 100
-    run_rcv_fraction = total_rcv_at_run/total_rcv_at_uliege * 100
-
-    print("Fraction of traffic sent to RUN: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-            .format(run_sent_fraction, total_sent_from_run/10**9, total_sent_from_uliege/10**9))
-
-    print("Fraction of traffic received at RUN: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-                .format(run_rcv_fraction, total_rcv_at_run/10**9, total_rcv_at_uliege/10**9))
-
-    print("Fraction of traffic sent to Montefiore: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-                .format(montef_sent_fraction, total_sent_from_montef/10**9, total_sent_from_uliege/10**9))
-
-    print("Fraction of traffic received at Montefiore: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-            .format(montef_rcv_fraction, total_rcv_at_montef/10**9, total_rcv_at_uliege/10**9))
+    # run_sent_index = [searchIp(i, run_network) for i in uliege_df_sent['src_addr'].values]
+    # run_rcv_index = [searchIp(i, run_network) for i in uliege_df_rcv['dest_addr'].values]
+    # run_df_sent = uliege_df_sent[run_sent_index]
+    # run_df_rcv = uliege_df_rcv[run_rcv_index]
 
 
-    
+    # # Compute fractions sent/received from/at montef and run
+    # total_sent_from_montef = montef_df_sent['in_bytes'].sum()
+    # total_rcv_at_montef = montef_df_rcv['in_bytes'].sum()
+    # total_sent_from_run = run_df_sent['in_bytes'].sum()
+    # total_rcv_at_run = run_df_rcv['in_bytes'].sum()
+
+    # montef_sent_fraction = total_sent_from_montef/total_sent_from_uliege * 100
+    # montef_rcv_fraction = total_rcv_at_montef/total_rcv_at_uliege * 100
+    # run_sent_fraction = total_sent_from_run/total_sent_from_uliege * 100
+    # run_rcv_fraction = total_rcv_at_run/total_rcv_at_uliege * 100
+
+    # print("Fraction of traffic sent to RUN: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+    #         .format(run_sent_fraction, total_sent_from_run/10**9, total_sent_from_uliege/10**9))
+
+    # print("Fraction of traffic received at RUN: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+    #             .format(run_rcv_fraction, total_rcv_at_run/10**9, total_rcv_at_uliege/10**9))
+
+    # print("Fraction of traffic sent to Montefiore: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+    #             .format(montef_sent_fraction, total_sent_from_montef/10**9, total_sent_from_uliege/10**9))
+
+    # print("Fraction of traffic received at Montefiore: {:.1f}% ({:.1f} GB /{:.1f} GB)"
+    #         .format(montef_rcv_fraction, total_rcv_at_montef/10**9, total_rcv_at_uliege/10**9))
+
+
+
 if __name__ == '__main__':
     # filename = "/mnt/hdd/netflow_split89"
     filename = "/mnt/hdd/netflow.csv"
@@ -514,18 +557,10 @@ if __name__ == '__main__':
 
     use_saved = False
 
-    # question1(filename, new_names, use_saved)
-    # question2(filename, new_names)
-    # question3(filename, new_names, use_saved_model=use_saved, sender=True)
-    # question3(filename, new_names, use_saved_model=use_saved, sender=False)
-    question4(filename, new_names, 24, 7, 8,  10000000, use_saved_model=False)
-    # question5(filename, new_names, rows=100000)
+    question1(filename, new_names, use_saved)
+    question2(filename, new_names)
+    question3(filename, new_names, use_saved_model=use_saved, sender=True)
+    question3(filename, new_names, use_saved_model=use_saved, sender=False)
+    question4(filename, new_names, 24, 7, 8,  5000000, use_saved_model=False)
+    question5(filename, new_names, rows=10000000)
 
-
-    # df = pd.read_csv(filename, header=0, names=new_names, usecols=['src_addr'], nrows=10000)
-    
-    # ip = {'src_addr': ['192.168.56.1','192.168.56.5','155.168.56.1']}
-    # df = pd.DataFrame(ip,columns= ['src_addr'])
-
-    # cnt_sub_Uliege = countPrefixOccurence(df, '139.165.0.0/16')
-    # print(cnt_sub_Uliege)
