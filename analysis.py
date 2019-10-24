@@ -1,9 +1,11 @@
 import pandas as pd
+import numpy as np
 from matplotlib import pyplot as plt
 import ipaddress as ip
 import sys
 from anytree import AnyNode, RenderTree, AsciiStyle, find
 from anytree.exporter import DotExporter
+
 
 def nodenamefunc(node):
     return "%s (%s B)" % (node.ip, node.traffic)
@@ -230,6 +232,7 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
     df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
                         usecols=['src_addr', 'in_bytes'], nrows=rows)
 
+    countPrefixOccurence(df, "77.102.0.0/16")
     total_traffic = df['in_bytes'].sum()
 
     # Count the leave nodes and sum their traffic
@@ -299,47 +302,12 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
     curr_root.traffic = sum(x.traffic for x in curr_root.children)
     curr_root.frequency = sum(x.frequency for x in curr_root.children)
 
-    # Save the tree as a graph
-    createTree(curr_root)
-    # print(RenderTree(curr_root))
-    # print(RenderTree(curr_root).by_attr('ip'))
+    # # Save the tree as a graph
+    # createTree(curr_root)
 
-    # # Take only a certain percentage of prefixes
-    # top10_prefixes = int(10/100 * gb.shape[0])
-    # top1_prefixes = int(1/100 * gb.shape[0])
-    # top01_prefixes = int(0.1/100 * gb.shape[0])
-
-    # total_sum = gb.in_bytes.sum()
-    # partial_sum = gb.in_bytes[:top10_prefixes].sum()
-    # traffic_fraction = partial_sum / total_sum * 100
-    # print("Fraction of traffic of 10% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-    #         .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
-    
-    # partial_sum = gb.in_bytes[:top1_prefixes].sum()
-    # traffic_fraction = partial_sum / total_sum * 100
-    # print("Fraction of traffic of 1% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-    #         .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
-    
-    # partial_sum = gb.in_bytes[:top01_prefixes].sum()
-    # traffic_fraction = partial_sum / total_sum * 100
-    # print("Fraction of traffic of 0.1% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
-    #         .format(traffic_fraction, partial_sum/10**9, total_sum/10**9))
-
-    # simpleBarPlot(gb, top10_prefixes,'10')
-    # simpleBarPlot(gb, top1_prefixes,'1')
-    # simpleBarPlot(gb, top01_prefixes,'01')
-
-def simpleBarPlot(df, nb_prefix, percentage):
-    df = df[:nb_prefix]
-    df.plot(kind='bar')
-    plt.xticks(range(0,nb_prefix),df['src_addr_prefix'].values)
-    plt.xlabel("IP address prefix")
-    plt.ylabel("Traffic volume (in bytes)")
-    fig = plt.gcf()
-    fig.set_size_inches(10, 6)
-    fig.subplots_adjust(bottom=0.2)
-    # plt.show()
-    plt.savefig("Top{}_Barplot.svg".format(percentage))
+def countPrefixOccurence(df, network):
+    result = df['src_addr'].apply(lambda x : searchIp(x, ip.ip_network(network))).values
+    return np.count_nonzero(result == True)
 
 
 def extractPrefix(x, prefix_length, as_string):
@@ -462,12 +430,12 @@ if __name__ == '__main__':
         'engine_type',
         'exid']
 
-    #question1(filename, new_names)
-    # question2(filename, new_names)
-    # question3(filename, new_names)
-    question4(filename, new_names, prefix_length=8, rows=10)
-    # question5(filename, new_names, rows=100000)
+    use_saved = False
 
-    # prefix_length = sys.argv[1]
-    # question4(filename, new_names, prefix_length=prefix_length, rows=92507632)
+    # question1(filename, new_names, use_saved)
+    # question2(filename, new_names)
+    # question3(filename, new_names, use_saved_model=use_saved, sender=True)
+    # question3(filename, new_names, use_saved_model=use_saved, sender=False)
+    question4(filename, new_names,  32, 15, 8,  10)
+    # question5(filename, new_names, rows=100000)
 
