@@ -2,7 +2,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import ipaddress as ip
 import sys
-from anytree import AnyNode, RenderTree
+from anytree import AnyNode, RenderTree, AsciiStyle, find
 
 def create_graph(df, cum, is_log):
     fig, ax = plt.subplots()
@@ -61,12 +61,22 @@ def question4(filename, new_names, prefix_length, rows):
     df['percentage_cum'] = df['percentage'].cumsum()
     # print(df)
 
+    # Create and populate tree starting from the leaves (IP addresses)
     root = AnyNode(ip="root",frequency=0,traffic=0)
+
     for index, row in df.iterrows():
-        subnet = AnyNode(parent = root,
-                        ip=extractPrefix(row['src_addr'], prefix_length),
-                        frequency=0,
-                        traffic=0)
+
+        subnet_of_ip = extractPrefix(row['src_addr'], prefix_length)
+        existing_subnet = find(node=root,
+                                filter_=lambda node: node.ip == subnet_of_ip,
+                                maxlevel = 2)
+        if(existing_subnet is None):
+            subnet = AnyNode(parent = root,
+                            ip=subnet_of_ip,
+                            frequency=0,
+                            traffic=0)
+        else:
+            subnet = existing_subnet
 
         ip = AnyNode(parent = subnet,
                         ip = row['src_addr'], 
@@ -74,8 +84,10 @@ def question4(filename, new_names, prefix_length, rows):
                         traffic = row['sum_in_bytes'])
         subnet.traffic += sum(x.traffic for x in subnet.children)
         subnet.frequency += sum(x.frequency for x in subnet.children)
-
-    print(RenderTree(root))
+    
+    root.traffic += sum(x.traffic for x in root.children)
+    root.frequency += sum(x.frequency for x in root.children)
+    print(RenderTree(root,style=AsciiStyle()))
 
     # # Take only a certain percentage of prefixes
     # top10_prefixes = int(10/100 * gb.shape[0])
