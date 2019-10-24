@@ -3,6 +3,22 @@ from matplotlib import pyplot as plt
 import ipaddress as ip
 import sys
 from anytree import AnyNode, RenderTree, AsciiStyle, find
+from anytree.exporter import DotExporter
+
+def nodenamefunc(node):
+    return "%s (%s B)" % (node.ip, node.traffic)
+def edgeattrfunc(node, child):
+    return 'label="%s (%s bytes)"' % (node.ip, child.name)
+def edgetypefunc(node, child):
+    return '--'
+
+def createTree(root):
+    DotExporter(root, 
+                graph="graph",
+                nodenamefunc=nodenamefunc,
+                # nodeattrfunc= lambda node: "shape=box",
+                # edgeattrfunc=edgeattrfunc,
+                edgetypefunc=edgetypefunc).to_picture("tree.pdf")
 
 def create_graph(df, cum, is_log):
     fig, ax = plt.subplots()
@@ -56,46 +72,12 @@ def question4(filename, new_names, prefix_length, rows):
     df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
     df = df.rename_axis(None).reset_index()
     df.columns = ['src_addr','src_addr_frequency','sum_in_bytes']
-    # df.sort_values(by=['sum_in_bytes'], ascending=False, inplace=True)
-    # df['percentage'] = (df['sum_in_bytes']/total_traffic*100)
-    # df['percentage_cum'] = df['percentage'].cumsum()
-    # print(df)
-
-    # # Create and populate tree starting from the leaves (IP addresses)
-    # root = AnyNode(ip="root",frequency=0,traffic=0)
-
-    # for _, row in df.iterrows():
-    #     # Get subnet of the current row
-    #     subnet_of_ip = extractPrefix(row['src_addr'], prefix_length)
-
-    #     # Find in the tree if the subnet exists alerady
-    #     existing_subnet = find(node=root,
-    #                             filter_=lambda node: node.ip == subnet_of_ip,
-    #                             maxlevel = 2)
-        
-    #     # If not, create a new one
-    #     if(existing_subnet is None):
-    #         subnet = AnyNode(parent = root,
-    #                         ip=subnet_of_ip,
-    #                         frequency=0,
-    #                         traffic=0)
-    #     else:
-    #         subnet = existing_subnet
-
-    #     # Add the child (the ip address) and update the parent (subnet)
-    #     ip = AnyNode(parent = subnet,
-    #                     ip = row['src_addr'], 
-    #                     frequency = row['src_addr_frequency'], 
-    #                     traffic = row['sum_in_bytes'])
-    #     subnet.traffic = sum(x.traffic for x in subnet.children)
-    #     subnet.frequency = sum(x.frequency for x in subnet.children)
-    
     curr_root = AnyNode(ip="root",frequency=0,traffic=0) # Node pointing at upper_level subnets
 
-    for prefix_length in range(32,27,-2): 
-        if(prefix_length == 32):
+    for cnt, prefix_length in enumerate(range(8,4,-2)): 
+        if(cnt == 0):
             for _, row in df.iterrows():
-                subnet_of_ip = extractPrefix(row['src_addr'], prefix_length)
+                subnet_of_ip = extractPrefix(row['src_addr'], prefix_length, True)
                 print(subnet_of_ip)
                 # Find in the tree if the subnet exists alerady
                 existing_subnet = find(node=curr_root,
@@ -114,10 +96,10 @@ def question4(filename, new_names, prefix_length, rows):
                     
 
                 # Add the child (the ip address) and update the parent (subnet)
-                new_node = AnyNode(parent = subnet,
-                                ip = row['src_addr'], 
-                                frequency = row['src_addr_frequency'], 
-                                traffic = row['sum_in_bytes'])
+                AnyNode(parent = subnet,
+                        ip = row['src_addr'], 
+                        frequency = row['src_addr_frequency'], 
+                        traffic = row['sum_in_bytes'])
                 subnet.traffic += row['sum_in_bytes']
                 subnet.frequency += row['src_addr_frequency']
 
@@ -126,8 +108,8 @@ def question4(filename, new_names, prefix_length, rows):
 
             # The current root contains the subnets
             for subnet in curr_root.children:
-                subnet_ip = str(subnet.ip)[:-3]
-                subnet_of_subnet = extractPrefix(subnet_ip, prefix_length)
+                subnet_ip = str(subnet.ip).split('/')[0]
+                subnet_of_subnet = extractPrefix(subnet_ip, prefix_length, True)
 
                 # Find in the tree if the subnet exists alerady
                 existing_subnet = find(node=new_root,
@@ -136,7 +118,6 @@ def question4(filename, new_names, prefix_length, rows):
                 
                 # If not, create a new one and add the current subnet as his child
                 if(existing_subnet is None):
-                    traffic = subnet.traffic
                     AnyNode(parent = new_root,
                                 children= [subnet],
                                 ip=subnet_of_subnet,
@@ -154,8 +135,10 @@ def question4(filename, new_names, prefix_length, rows):
     curr_root.traffic = sum(x.traffic for x in curr_root.children)
     curr_root.frequency = sum(x.frequency for x in curr_root.children)
 
-    # Render the tree in the console
-    # print(RenderTree(curr_root,style=AsciiStyle()))
+    # Save the tree as a graph
+    createTree(curr_root)
+    # print(RenderTree(curr_root))
+    # print(RenderTree(curr_root).by_attr('ip'))
 
     # # Take only a certain percentage of prefixes
     # top10_prefixes = int(10/100 * gb.shape[0])
@@ -163,7 +146,6 @@ def question4(filename, new_names, prefix_length, rows):
     # top01_prefixes = int(0.1/100 * gb.shape[0])
 
     # total_sum = gb.in_bytes.sum()
-
     # partial_sum = gb.in_bytes[:top10_prefixes].sum()
     # traffic_fraction = partial_sum / total_sum * 100
     # print("Fraction of traffic of 10% most popular IP: {:.1f}% ({:.1f} GB /{:.1f} GB)"
@@ -196,8 +178,11 @@ def simpleBarPlot(df, nb_prefix, percentage):
     plt.savefig("Top{}_Barplot.svg".format(percentage))
 
 
-def extractPrefix(x, prefix_length):
-    return ip.ip_network('{}/{}'.format(x, prefix_length), strict=False)
+def extractPrefix(x, prefix_length, as_string):
+    if(as_string):
+        return str(ip.ip_network('{}/{}'.format(x, prefix_length), strict=False))
+    else:
+        return ip.ip_network('{}/{}'.format(x, prefix_length), strict=False)
 
 def searchIp(x, network):
     binary_address = int(ip.ip_address(x))
@@ -316,9 +301,8 @@ if __name__ == '__main__':
     #question1(filename, new_names)
     # question2(filename, new_names)
     # question3(filename, new_names)
-    question4(filename, new_names, prefix_length=8, rows=500)
+    question4(filename, new_names, prefix_length=8, rows=10)
     # question5(filename, new_names, rows=100000)
-
 
     # prefix_length = sys.argv[1]
     # question4(filename, new_names, prefix_length=prefix_length, rows=92507632)
