@@ -3,6 +3,21 @@ from matplotlib import pyplot as plt
 import ipaddress as ip
 import sys
 
+# Node class for the tree traversal
+class Node(object):
+    def __init__(self, subnet_or_ip, frequency, traffic):
+        self.subnet_or_ip = subnet_or_ip
+        self.frequency = frequency
+        self.traffic = traffic
+        self.children = []
+
+    def add_children(self, children):
+        self.traffic += sum(x.traffic for x in children)
+        self.frequency += sum(x.frequency for x in children)
+        self.children.extend(children)
+
+
+
 
 def create_graph(df, cum, is_log):
     fig, ax = plt.subplots()
@@ -222,9 +237,16 @@ if __name__ == '__main__':
     #question1(filename, new_names)
     # question2(filename, new_names)
     # question3(filename, new_names)
-    question4(filename, new_names, prefix_length=24, rows=10000)
+    # question4(filename, new_names, prefix_length=24, rows=10000)
     # question5(filename, new_names, rows=100000)
 
+    test = Node("1",10,5000)
+    child2 = Node("2",10,5000)
+    child3 = Node("3",10,5000)
+
+    test.add_children([child2, child3])
+    print(test.traffic)
+    print(test.frequency)
 
     # prefix_length = sys.argv[1]
     # question4(filename, new_names, prefix_length=prefix_length, rows=92507632)
