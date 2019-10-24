@@ -8,7 +8,8 @@ from anytree.exporter import DotExporter
 import subprocess
 import pickle
 
-
+################################################
+# Functions for the anytree graphical representation 
 def nodenamefunc(node):
     return "%s (%s B)" % (node.ip, node.traffic)
 def edgeattrfunc(node, child):
@@ -23,6 +24,8 @@ def createTree(root):
                 # nodeattrfunc= lambda node: "shape=box",
                 # edgeattrfunc=edgeattrfunc,
                 edgetypefunc=edgetypefunc).to_picture("tree.pdf")
+################################################""
+
 
 def create_graph(df, cum, abs_leg, ord_leg, is_log, name, col_num=1):
     """Create a (complementary) cumulative distribution function plot
@@ -231,15 +234,33 @@ def question3(filename, new_names, use_saved_model=False, sender=True):
 
 
 def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_length_step,  rows, use_saved_model=False):
-    
+    """Aggregate the subnetworks responsible the top 10, the top 1 and the top 0.1 percent of traffic by volume.
+
+    This is done using an N-ary tree using the anytree library.
+    Writes the subnets to a file and creates a graphical representation of the resulting tree.
+
+    Parameters:
+    filename (String): The name of the file containing the data
+    new_names (String): The new names of the columns of the data
+    prefix_length_max (int): Max prefix length to consider
+    prefix_length_min (int): Min prefix length to consider
+    prefix_length_step (int): Steps from one prefix length to another, positive
+    rows (int): Number of rows in the dataframe to consider
+    use_saved_model (boolean): Whether we wish to use the grouped dataframe saved to disk or not
+
+    Return:
+    /
+
+    """
+    # Use saved pickle of grouped dataframe if wished so
     if(not use_saved_model):
         df = pd.read_csv(filename, header=0, delimiter=',', names=new_names, 
                             usecols=['src_addr', 'in_bytes'], nrows=rows)
 
-
         total_traffic = df['in_bytes'].sum()
         np.save('total_traf.npy', total_traffic)
-        countSubnets(df, "77.102.0.0", 24)
+
+        countSubnets(df, "77.102.101.0/16", 24)
 
         # Count the IP addresses and sum their traffic
         df = df.groupby('src_addr', sort=False).agg({'src_addr':'count', 'in_bytes':'sum'})
@@ -250,6 +271,7 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
     else:
         df = pd.read_pickle("df_groupby_q4.pkl")
         total_traffic = np.load('total_traf.npy')
+
     # Node pointing at upper_level subnets
     curr_root = AnyNode(ip="root",frequency=0,traffic=0) 
 
@@ -335,8 +357,6 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
     top1_prefix = [x.ip for x in top1_prefix_nodes]
     top01_prefix = [x.ip for x in top01_prefix_nodes]
 
-    print(top10_prefix)
-
     with open('top10_prefix.txt', 'w') as f:
         for item in top10_prefix:
             f.write("{}\n".format(item))
@@ -349,24 +369,36 @@ def question4(filename, new_names, prefix_length_max, prefix_length_min, prefix_
         for item in top01_prefix:
             f.write("{}\n".format(item))
 
-
-def countSubnets(df, network, mask):
+def countSubnets(df, network, prefix_length):
+    """
+    Counts, from the unique networks with prefix length of `prefix_length` in the dataframe, 
+    which ones are subnets of the given network `network`
+    """
+    network = ip.ip_network(network, strict=False)
     df['src_adrr_prefix'] = df['src_addr'].apply(lambda x : extractPrefix(x, mask, True))
-    print(df['src_adrr_prefix'])
-    test = df['src_adrr_prefix'].apply(lambda x : searchIp(x.split('/')[0], ip.ip_network(network)))
+    test = df['src_adrr_prefix'].drop_duplicates().apply(lambda x : ip.ip_network(x).subnet_of(network))
+    return np.count_nonzero(test.values == True)
 
-    print(test)
-    # result = np.append(result,True)
-    # return np.count_nonzero(result == True)
 
 
 def extractPrefix(x, prefix_length, as_string):
+    """
+    Returns an IPNetwork object of the ipaddress module created using
+    ip address `x` given as string with a prefix length of `prefix_length`
+    """
     if(as_string):
         return str(ip.ip_network('{}/{}'.format(x, prefix_length), strict=False))
     else:
         return ip.ip_network('{}/{}'.format(x, prefix_length), strict=False)
 
 def searchIp(x, network):
+    """ Returns True if IP addresss `x` is in network `network`
+        x (string): Ip address
+        network (string): network address
+
+        return: boolean
+    """
+    
     binary_address = int(ip.ip_address(x))
     binary_mask = int(network.netmask)
     binary_network_addr = int(network.network_address)
@@ -486,7 +518,7 @@ if __name__ == '__main__':
     # question2(filename, new_names)
     # question3(filename, new_names, use_saved_model=use_saved, sender=True)
     # question3(filename, new_names, use_saved_model=use_saved, sender=False)
-    question4(filename, new_names, 24, 7, 8,  100, use_saved_model=False)
+    question4(filename, new_names, 24, 7, 8,  10000000, use_saved_model=False)
     # question5(filename, new_names, rows=100000)
 
 
