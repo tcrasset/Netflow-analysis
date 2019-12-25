@@ -118,7 +118,7 @@ def question1(filename, new_names, use_saved_model):
     if(use_saved_model):
         df = pd.read_pickle("df_size_nb_pkt.pkl")
     else:
-        df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes', 'in_packets'], nrows=92507632)
+        df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes', 'in_packets'], nrows=10)
         df['packet_size'] = df['in_bytes']/df['in_packets']
         df = df.drop(columns=['in_bytes'])
 
@@ -148,7 +148,7 @@ def question2(filename, new_names):
     /
 
     """
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['time_duration'], nrows=92507632) # 92 507 632 ok, 92507633 not ok, real = 92507636
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['time_duration'], nrows=10) # 92 507 632 ok, 92507633 not ok, real = 92507636
 
     # Plotting and saving the CCDF of flow duration using linear axis.
     create_graph(df['time_duration'], -1, "flow duration (sec)", "nb flows", False, "CCDF_flow_dur_lin")
@@ -157,7 +157,7 @@ def question2(filename, new_names):
     create_graph(df['time_duration'], -1, "flow duration (sec)", "nb flows", True, "CCDF_flow_dur_log")
     print("CCDF plots (linear and log axis) of flow duration have been saved")
 
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes'], nrows=92507632)
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_bytes'], nrows=10)
 
     # Plotting and saving the CCDF of number of bytes in a flow using linear axis.
     create_graph(df['in_bytes'], -1, "nb bytes", "nb flows", False, "CCDF_nb_bytes_in_flow_lin")
@@ -166,7 +166,7 @@ def question2(filename, new_names):
     create_graph(df['in_bytes'], -1, "nb bytes", "nb flows", True, "CCDF_nb_bytes_in_flow_log")
     print("CCDF plots (linear and log axis) of number of bytes in a flow have been saved")
 
-    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_packets'], nrows=92507632)
+    df = pd.read_csv(filename, header=0, names=new_names, usecols=['in_packets'], nrows=10)
 
     # Plotting and saving the CCDF of number of packets in a flow using linear axis.
     create_graph(df['in_packets'], -1, "nb pkts", "nb flows", False, "CCDF_nb_pkts_in_flow_lin")
@@ -206,7 +206,7 @@ def question3(filename, new_names, use_saved_model=False, sender=True):
         print(df_traf_vol)
 
     else:
-        df = pd.read_csv(filename, header=0, names=new_names, usecols=[at, 'in_bytes'], nrows=92507632)
+        df = pd.read_csv(filename, header=0, names=new_names, usecols=[at, 'in_bytes'], nrows=10)
         
         # Summing the traffic volume (in bytes) of the different sender (or receiver) port number, taking the top-ten by traffic volume.
         df_traf_vol = df.groupby([at])[['in_bytes']].sum().reset_index().sort_values(by=['in_bytes'], ascending=False)[:10]
@@ -557,10 +557,10 @@ if __name__ == '__main__':
 
     use_saved = False
 
-    question1(filename, new_names, use_saved)
+    question1(filename, new_names, use_saved_model=use_saved)
     question2(filename, new_names)
     question3(filename, new_names, use_saved_model=use_saved, sender=True)
     question3(filename, new_names, use_saved_model=use_saved, sender=False)
-    question4(filename, new_names, 24, 7, 8,  5000000, use_saved_model=False)
-    question5(filename, new_names, rows=10000000)
+    question4(filename, new_names, 24, 7, 8,  10, use_saved_model=use_saved)
+    question5(filename, new_names, rows=10)
 
